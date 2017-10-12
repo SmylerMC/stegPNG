@@ -38,11 +38,11 @@ class ChunkImplementation:
         """This is to be overriden for most chunks."""
         return {}
 
-    def get(self, chunk, attribute):
+    def get(self, chunk, field):
         """This is to be overriden for most chunks."""
         raise KeyError()
 
-    def set(self, chunk, attribute, value):
+    def set(self, chunk, field, value):
         """This is to be overriden for most chunks."""
         raise KeyError()
 
@@ -79,6 +79,10 @@ class ChunkIHDR(ChunkImplementation):
             width = unpack('>I', chunk.data[0:4])[0]
             height = unpack('>I', chunk.data[4:8])[0]
             return (width, height)
+        elif field == 'width':
+            return unpack('>I', chunk.data[0:4])[0]
+        elif field == 'height':
+            return unpack('>I', chunk.data[4:8])[0]
         elif field == 'colortype_name':
             code = self.get(chunk, 'colortype_code')
             return self.__color_types[code][0]
@@ -98,6 +102,38 @@ class ChunkIHDR(ChunkImplementation):
         else:
             raise KeyError()
 
+    def set(self, chunk, field, value):
+        if field == 'size':
+            width = pack('>I', value[0])
+            height = pack('>I', value[1])
+            chunk.data = width + height + chunk.data[8:]
+        elif field == 'width':
+            width = pack('>I', value)
+            chunk.data = width + chunk.data[4:]
+        elif field == 'height':
+            height = pack('>I', value)
+            chunk.data = chunk.data[:4] + height + chunk.data[8:]
+        elif field == 'colortype_code':
+            code = pack('B', value)
+            chunk.data = chunk.data[:9] + code + chunk.data[10:]
+        elif field == 'bit_depth':
+            code = pack('B', value)
+            chunk.data = chunk.data[:8] + code + chunk.data[9:]
+        elif field == 'compression':
+            code = pack('B', value)
+            chunk.data = chunk.data[:10] + code + chunk.data[11:]
+        elif field == 'filter_method':
+            code = pack('B', value)
+            chunk.data = chunk.data[:11] + code + chunk.data[12:]
+        elif field == 'interlace':
+            code = pack('B', value)
+            chunk.data = chunk.data[:12] + code + chunk.data[13:]
+        else:
+            raise KeyError()
+
+    def _is_payload_valid(self, chunk):
+        return self.get(chunk, 'bit_depth') in self.get(chunk, colortype_depth)
+
 class ChunkIDAT(ChunkImplementation):
 
     """Not ready at all"""
@@ -113,7 +149,7 @@ class ChunkIDAT(ChunkImplementation):
 class ChunktEXt(ChunkImplementation):
 
     """This still needs to support setting attributes""" #TODO
-    
+
     def __init__(self):
         super(ChunktEXt, self).__init__('IDAT')
 

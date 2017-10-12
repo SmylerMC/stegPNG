@@ -153,7 +153,7 @@ class PngChunk:
         if not type(data) == type(b''):
             raise TypeError("A PNG chunk can only carry data as bytes, not as {}".format(type(data).__name__  ))
         self.__changing(update_crc=False)
-        self.__bytes[8:-4] #TODO
+        self.__bytes = self.__bytes[0:8] + data + self.__bytes[-4:]
         self.__update_length()
         self.__changing(self.auto_update)
 
@@ -194,6 +194,9 @@ class PngChunk:
 
     def __getitem__(self, index):
         return self.__get_implementation().get(self, index)
+
+    def __setitem__(self, index, value):
+        self.__get_implementation().set(self, index, value)
 
     def get_payload(self):
         return self.__get_implementation().get_all(self)
