@@ -48,8 +48,6 @@ class ChunkImplementation:
 
 class ChunkIHDR(ChunkImplementation):
 
-    """This still needs to support setting attributes""" #TODO
-
     def __init__(self):
         super(ChunkIHDR, self).__init__('IHDR', length=13)
         self.__color_types = (
