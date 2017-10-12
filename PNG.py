@@ -8,10 +8,12 @@ _PNG_SIGNATURE = b'\x89PNG\r\n\x1a\n'
 class PNG:
     """Represents a PNG file to use for forensics analysis."""
 
-    def __init__(self,  filebytes):
+    def __init__(self,  filebytes, ignore_signature=False):
         """The argument should be the bytes of a PNG file.
         The PNG.open(str) methode should be used to read a local file.
         The bytes are read from the constructor, so it can take some time for large images."""
+        if not ignore_signature and not read_png_signature(filebytes):
+            raise pngexceptions.InvalidPngStructureException("missing PNG signature")
         self.__filebytes = filebytes
         self.__chunks = None
         self.__file_end = None
@@ -199,10 +201,10 @@ class PngChunk:
 _supported_chunks = chunks.implementations #Just making a local reference for easier access
 
 opn = open
-def open(filename):
+def open(filename, ignore_signature=False):
     """Returns a PNG object from the given file name."""
     with opn(filename, 'rb') as f:
-        return PNG(f.read())
+        return PNG(f.read(), ignore_signature=ignore_signature)
 
 def read_png_signature(data):
     return data[0:8] == _PNG_SIGNATURE
@@ -212,5 +214,5 @@ def get_empty_chunk(t):
     c = PngChunk(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
     if not type(t) is type(''):
         raise TypeError("The type of a chunk should be a string.")
-    c.type = t
+    c.type = t #The crc is automaticaly updated when doing this.
     return c
