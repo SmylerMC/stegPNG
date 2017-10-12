@@ -1,8 +1,7 @@
 # Byte-compiled / optimized / DLL files
 
-#Our test script
-test.py
-test.png
+#Our test things
+test*
 
 __pycache__/
 *.py[cod]
