@@ -75,6 +75,13 @@ class PNG:
         """Resets any change done to the image and goes back to when it was created."""
         self.__read_chunks()
 
+    def add_chunk(self, chunk, index=None):
+        """Adds the chunk to the file, at the given index.
+        If the index is ommited, the chunk is added just before the IEND last chunk."""
+        if index == None:
+            index = len(self.chunks - 2)
+        self.__chunks.insert(index, chunk)
+
 class PngChunk:
 
     def __init__(self, chunkbytes, edit=True, auto_update=True):
@@ -201,6 +208,10 @@ class PngChunk:
     def get_payload(self):
         return self.__get_implementation().get_all(self)
 
+    def _set_empty_data(self):
+        """Replaces the current data with a garbage, but valid one provided by the implementation"""
+        self.data = self.__get_implementation().empty_data
+
 _supported_chunks = chunks.implementations #Just making a local reference for easier access
 
 opn = open
@@ -212,10 +223,14 @@ def open(filename, ignore_signature=False):
 def read_png_signature(data):
     return data[0:8] == _PNG_SIGNATURE
 
-def get_empty_chunk(t):
-    """Creates and return an empty chunk of length of 0, with the type given."""
+def get_empty_chunk(t, realy_empty=False):
+    """Creates and return an empty chunk of length of 0, with the type given.
+    If realy_empty is not set, the chunk will be filled with default data
+    to make it valid, if the type is suported"""
     c = PngChunk(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
     if not type(t) is type(''):
         raise TypeError("The type of a chunk should be a string.")
     c.type = t #The crc is automaticaly updated when doing this.
+    if not realy_empty:
+        c._set_empty_data()
     return c

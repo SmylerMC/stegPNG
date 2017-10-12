@@ -3,13 +3,15 @@ from pngexceptions import InvalidChunkStructureException
 
 class ChunkImplementation:
 
-    def __init__(self, chtype, length=None, maxlength=1<<31-1, minlength=0):
+    def __init__(self, chtype, empty_data=b'', length=None, maxlength=1<<31-1, minlength=0):
         """Arguments:
-            chtype: The chunk type (IHDR, IDAT, IEND etc...)
+            chtype: The chunk type (IHDR, IDAT, IEND etc...
+            empty_data: the data an empty chunk of this type should have, to makeit valid
             length: The fixed length of the chunk. Overrides minlength and maxlength if set.
             minlength: The minimum length of the chunk.
             maxlength: The minimum length of the chunk."""
         self.type = chtype
+        self.empty_data = empty_data
         if length != None:
             self.maxlength = length
             self.minlength = length
@@ -32,7 +34,7 @@ class ChunkImplementation:
 
     def _is_payload_valid(self, chunk):
         """This is to be overriden for most chunks."""
-        return True
+        return chunk.data == b''
 
     def get_all(self, chunk):
         """This is to be overriden for most chunks."""
@@ -49,7 +51,11 @@ class ChunkImplementation:
 class ChunkIHDR(ChunkImplementation):
 
     def __init__(self):
-        super(ChunkIHDR, self).__init__('IHDR', length=13)
+        super(ChunkIHDR, self).__init__(
+            'IHDR',
+            length=13,
+            empty_data=b'\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00',
+        )
         self.__color_types = (
         ("Greyscale", (1,2, 4, 8, 16)),
         ("Wrong!!", None),
@@ -134,7 +140,7 @@ class ChunkIHDR(ChunkImplementation):
 
 class ChunkIDAT(ChunkImplementation):
 
-    """Not ready at all"""
+    """Not ready at all""" #TODO
     def __init__(self):
         super(ChunkIDAT, self).__init__('IDAT')
 
@@ -149,31 +155,43 @@ class ChunktEXt(ChunkImplementation):
     """This still needs to support setting attributes""" #TODO
 
     def __init__(self):
-        super(ChunktEXt, self).__init__('IDAT')
+        super(ChunktEXt, self).__init__('IDAT',
+            empty_data=b'\x00',
+        )
 
     def get_all(self, chunk):
         return {'text': self.get(chunk, 'text'),
                 'keyword': self.get(chunk, 'keyword')}
 
     def get(self, chunk, field):
-        if field not in ('text', 'keyword'):
+        if field not in ('text', 'keyword', 'content'):
             raise KeyError()
-        sep = -1
-        for i in range(len(chunk.data)):
-            if chunk.data[i] == 0x00:
-                sep = i
-                break
-        if sep != -1:
-            keyword = unpack('{}s'.format(sep), chunk.data[0: sep])[0].decode('ascii')
-            text = unpack('{}s'.format(len(chunk.data) - sep - 1), chunk.data[sep + 1: len(chunk.data)])[0].decode('ascii')
-        else:
-            raise InvalidChunkStructureException()
+        if chunk.data.count(0x00) != 1:
+            raise InvalidChunkStructureException("invalid number of null byte separator in tEXt chunk")
+        sep = chunk.data.find(0x00)
+        keyword = unpack('{}s'.format(sep), chunk.data[0: sep])[0].decode('ascii')
+        text = unpack('{}s'.format(len(chunk.data) - sep - 1), chunk.data[sep + 1: len(chunk.data)])[0].decode('ascii')
         if field == 'text':
             return text
         elif field == 'keyword':
             return keyword
-        else:
+        elif field == 'content':
+            return keyword, text
+
+    def set(self, chunk, field, value):
+        if field not in ('text', 'keyword'):
             raise KeyError()
+        if chunk.data.count(0x00) != 1:
+            raise InvalidChunkStructureException("invalid number of null byte separator in tEXt chunk")
+        sep = chunk.data.find(0x00)
+        value = value.encode('ascii')
+        if field == 'text':
+            chunk.data = chunk.data[:sep + 1] + value
+        elif field == 'keyword':
+            chunk.data = value + chunk.data[sep:]
+
+    def _is_payload_valid(self, chunk):
+        return chunk.data.count(0x00) == 1
 
 implementations = {
     'IHDR': ChunkIHDR(),
