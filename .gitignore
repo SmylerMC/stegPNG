@@ -2,6 +2,7 @@
 
 #Our test script
 test.py
+test.png
 
 __pycache__/
 *.py[cod]
