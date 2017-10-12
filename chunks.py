@@ -4,6 +4,11 @@ from pngexceptions import InvalidChunkStructureException
 class ChunkImplementation:
 
     def __init__(self, chtype, length=None, maxlength=1<<31-1, minlength=0):
+        """Arguments:
+            chtype: The chunk type (IHDR, IDAT, IEND etc...)
+            length: The fixed length of the chunk. Overrides minlength and maxlength if set.
+            minlength: The minimum length of the chunk.
+            maxlength: The minimum length of the chunk."""
         self.type = chtype
         if length != None:
             self.maxlength = length
@@ -13,9 +18,16 @@ class ChunkImplementation:
             self.minlength = minlength
 
     def _is_length_valid(self, chunk):
+        """Returns True if the chunk's length is valid for that chunk.
+        This not to be overriden in most case, the length, maxlength and minlength arguments
+        of __init__ should be used."""
         return chunk.type == self.type and len(chunk) <= self.maxlength and len(chunk) >= self.minlength
 
     def is_valid(self, chunk):
+        """Returns True if the chunk is valid.
+        It ignores the crc signature, use PngChunk#check_crc() for that.
+        This method should normaly not be overriden as it checks the chunk's header
+        and calls _is_payload_valid() to check the payload. This is what is to be overiden."""
         return self._is_length_valid(chunk) and self._is_payload_valid(chunk)
 
     def _is_payload_valid(self, chunk):
@@ -88,6 +100,7 @@ class ChunkIHDR(ChunkImplementation):
 
 class ChunkIDAT(ChunkImplementation):
 
+    """Not ready at all"""
     def __init__(self):
         super(ChunkIDAT, self).__init__('IDAT')
 
@@ -99,6 +112,8 @@ class ChunkIDAT(ChunkImplementation):
 
 class ChunktEXt(ChunkImplementation):
 
+    """This still needs to support setting attributes""" #TODO
+    
     def __init__(self):
         super(ChunktEXt, self).__init__('IDAT')
 
