@@ -54,7 +54,7 @@ class ChunkIHDR(ChunkImplementation):
         super(ChunkIHDR, self).__init__(
             'IHDR',
             length=13,
-            empty_data=b'\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00',
+            empty_data=b'\x00\x00\x00\x01\x00\x00\x00\x01\x01\x00\x00\x00\x00',
         )
         self.__color_types = (
         ("Greyscale", (1,2, 4, 8, 16)),
@@ -152,10 +152,8 @@ class ChunkIDAT(ChunkImplementation):
 
 class ChunktEXt(ChunkImplementation):
 
-    """This still needs to support setting attributes""" #TODO
-
     def __init__(self):
-        super(ChunktEXt, self).__init__('IDAT',
+        super(ChunktEXt, self).__init__('tEXt',
             empty_data=b'\x00',
         )
 
@@ -166,7 +164,7 @@ class ChunktEXt(ChunkImplementation):
     def get(self, chunk, field):
         if field not in ('text', 'keyword', 'content'):
             raise KeyError()
-        if chunk.data.count(0x00) != 1:
+        if chunk.data.count(0x00) != 1 or chunk.data.find(0x00) > 78:
             raise InvalidChunkStructureException("invalid number of null byte separator in tEXt chunk")
         sep = chunk.data.find(0x00)
         keyword = unpack('{}s'.format(sep), chunk.data[0: sep])[0].decode('ascii')
@@ -191,35 +189,58 @@ class ChunktEXt(ChunkImplementation):
             chunk.data = value + chunk.data[sep:]
 
     def _is_payload_valid(self, chunk):
-        return chunk.data.count(0x00) == 1
+        return chunk.data.count(0x00) == 1 and chunk.data.find(0x00) <= 78
+
+class ChunksRGB(ChunkImplementation):
+
+    """""" #TODO Needs to be tested
+
+    def __init__(self):
+        super(ChunksRGB, self).__init__('sRGB',
+            empty_data=b'\x00', #TODO
+        )
+        self.rederingtypes = (
+            "Perceptual",
+            "Relative colorimetric",
+            "Saturation",
+            "Absolute colorimetric"
+        )
+
+    def get_all(self, chunk):
+        return {
+                'rendering_code': self.get('rendering_code'),
+                'rendering_name': self.get('rendering_name'),
+            }
+
+    def get(self, chunk, field):
+        if field == 'rendering_code':
+            return chunk.data[0]
+        elif field == 'rendering_name':
+            try:
+                return self.rederingtypes[self.get('rendering_code')]
+            except KeyError:
+                raise InvalidChunkStructureException('invalid sRGB value')
+        else:
+            raise KeyError()
+
+    def set(self, chunk, field, value):
+        if field == 'rendering_code':
+            chunk.data[0] = b'' + value + chunk.data[1:]
+        else:
+            raise KeyError()
+
+    def _is_payload_valid(self, chunk):
+        return self.get('rendering') in range(4)
 
 implementations = {
     'IHDR': ChunkIHDR(),
     'IDAT': ChunkIDAT(),
     'IEND': ChunkImplementation('IEND', length=0),
-    'tEXt': ChunktEXt()
+    'tEXt': ChunktEXt(),
+    'sRGB': ChunksRGB(),
 }
 
 #TODO Update to new system... ============================================================================
-class InfosRGB:
-
-    def __init__(self, chunk):
-        try:
-            super(InfosRGB, self).__init__(chunk)
-            self.rederingtypes = (
-                "Perceptual",
-                "Relative colorimetric",
-                "Saturation",
-                "Absolute colorimetric"
-            )
-            self.rendering = chunk.data[0]
-            self.isvalid = self.rendering in range(4)
-            if self.isvalid:
-                self.rendering = self.rederingtypes[self.rendering]
-        except Exception as e:
-            print(e)
-            self.isvalid = False
-
 
 class InfogAMA:
 
@@ -258,26 +279,6 @@ class InfotIME:
             self.minute = chunk.data[5]
             self.second = chunk.data[6]
             if 1 <= self.month <= 12 and 1 <= self.day <= 31 and 0 <= self.hour <= 23 and 0 <= self.minute <= 59 and 0 <= self.second <= 60:
-                self.isvalid = True
-            else:
-                self.isvalid = False
-        except Exception as e:
-            print(e)
-            self.isvalid = False
-
-class InfotEXt:
-
-    def __init__(self, chunk):
-        super(InfotEXt, self).__init__(chunk)
-        try:
-            sep = -1
-            for i in range(len(chunk.data)):
-                if chunk.data[i] == 0x00:
-                    sep = i
-                    break
-            if sep != -1:
-                self.keyword = unpack('{}s'.format(sep), chunk.data[0: sep])[0].decode('ascii')
-                self.text = unpack('{}s'.format(len(chunk.data) - sep - 1), chunk.data[sep + 1: len(chunk.data)])[0].decode('ascii')
                 self.isvalid = True
             else:
                 self.isvalid = False

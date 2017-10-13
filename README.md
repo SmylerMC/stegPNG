@@ -17,12 +17,7 @@ img.save('test.png)
 
 ## What is already implemented or not:
 - [x] Png file decoding
-- [x] Png IHDR chunk decoding
-- [x] Png IEND chunk decoding
-- [x] Png tEXt chunk decoding
-- [ ] Png IDAT chunk decoding
-- [ ] Png PLTE chunk decoding
-- [ ] Any other png chunk decoding
+- [x] A few chunks' content decoding (see the list bellow)
 - [ ] Various automated steganography methods
 - [ ] Documentation
 - [ ] Anything you would like me to implement
@@ -33,3 +28,23 @@ Clone the repository:
 
 Run setup.py:
 ```stegPNG/setup.py install```
+
+### PNG chunks support:
+- [x] IHDR
+- [ ] PLTE
+- [ ] IDAT
+- [x] IEND
+- [ ] tRNS
+- [ ] cHRM
+- [ ] gAMA
+- [ ] iCCP
+- [ ] sBIT
+- [x] sRGB
+- [x] tEXt
+- [ ] iTXt
+- [ ] zTXt
+- [ ] bKGD
+- [ ] pHYs
+- [ ] sPLT
+- [ ] tIME
+- [ ] Any other proprietary chunk
