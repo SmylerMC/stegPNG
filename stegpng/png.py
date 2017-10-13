@@ -65,11 +65,11 @@ class Png:
 
     def get_original(self):
         """Returns an original version of the object from when it was created."""
-        return PNG(self.__bytes)
+        return Png(self.__bytes)
 
     def copy(self):
         """Returns a copy of the object."""
-        return PNG(self.bytes)
+        return Png(self.bytes)
 
     def reset(self):
         """Resets any change done to the image and goes back to when it was created."""
@@ -216,9 +216,9 @@ _supported_chunks = chunks.implementations #Just making a local reference for ea
 
 __opn = open
 def open(filename, ignore_signature=False):
-    """Returns a PNG object from the given file name."""
+    """Returns a Png object from the given file name."""
     with __opn(filename, 'rb') as f:
-        return PNG(f.read(), ignore_signature=ignore_signature)
+        return Png(f.read(), ignore_signature=ignore_signature)
 
 def read_png_signature(data):
     return data[0:8] == _PNG_SIGNATURE
