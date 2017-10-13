@@ -8,7 +8,7 @@ setup(
     url="https://github.com/WHGhost/stegPNG",
     description='A python package to make png steganography easier',
     long_description="""A pure python package with the goal to make png steganography and
-    analyses easier""",
+    analysis easier""",
     author='WHGhost',
     author_email='wghosth@gmail.com',
     license='GPL-3.0',
@@ -22,7 +22,7 @@ setup(
         'License :: OSI Approved :: GNU General Public License (GPL)',
         'Programming Language :: Python :: 3',
     ],
-    keywords='png library steganography image analyses ',
+    keywords='png library steganography image analysis ',
     packages=["stegpng"],
     install_requires=[], #Will probably need Pillow in the future
     python_requires='>=3',
