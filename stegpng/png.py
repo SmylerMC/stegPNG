@@ -214,10 +214,10 @@ class PngChunk:
 
 _supported_chunks = chunks.implementations #Just making a local reference for easier access
 
-opn = open
+__opn = open
 def open(filename, ignore_signature=False):
     """Returns a PNG object from the given file name."""
-    with opn(filename, 'rb') as f:
+    with __opn(filename, 'rb') as f:
         return PNG(f.read(), ignore_signature=ignore_signature)
 
 def read_png_signature(data):
