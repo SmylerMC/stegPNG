@@ -1,11 +1,11 @@
 from struct import unpack, pack
 from zlib import crc32 as crc, decompressobj as decomp
-import chunks
-import pngexceptions
+from . import chunks
+from . import pngexceptions
 
 _PNG_SIGNATURE = b'\x89PNG\r\n\x1a\n'
 
-class PNG:
+class Png:
     """Represents a PNG file to use for forensics analysis."""
 
     def __init__(self,  filebytes, ignore_signature=False):

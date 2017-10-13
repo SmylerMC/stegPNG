@@ -1,5 +1,5 @@
 from struct import pack, unpack
-from pngexceptions import InvalidChunkStructureException
+from .pngexceptions import InvalidChunkStructureException
 
 class ChunkImplementation:
 
