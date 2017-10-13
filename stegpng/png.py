@@ -60,7 +60,7 @@ class Png:
         return b
 
     def save(self, fname):
-        with opn(fname, 'bw') as f: #This is not a type, open() is being ovewriten
+        with opn(fname, 'bw') as f: #This is not a typo, open() is being ovewriten
             f.write(self.bytes)
 
     def get_original(self):
