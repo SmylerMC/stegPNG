@@ -1,5 +1,5 @@
 # stegPNG
-A pure python 3 png library intended to make steganography and analyses easier.
+A pure python 3 png library intended to make steganography and analysis easier.
 The library is still in alpha and misses lots of planned content.
 Part of a future project.
 
