@@ -60,7 +60,7 @@ class Png:
         return b
 
     def save(self, fname):
-        with opn(fname, 'bw') as f: #This is not a typo, open() is being ovewriten
+        with __builtins__['open'](fname, 'bw') as f: #This is not a typo, open() is being ovewriten
             f.write(self.bytes)
 
     def get_original(self):
@@ -78,9 +78,40 @@ class Png:
     def add_chunk(self, chunk, index=None):
         """Adds the chunk to the file, at the given index.
         If the index is ommited, the chunk is added just before the IEND last chunk."""
-        if index == None:
-            index = len(self.chunks - 2)
+        if index == None: #TODO There are other special cases, but the chunks are not supported yet
+            if chunk.type == 'IHDR':
+                index = 0
+            elif chunk.type == 'IEND':
+                index = len(self.chunks)
+            else:
+                index = len(self.chunks) - 1
         self.__chunks.insert(index, chunk)
+
+    def remove_chunk(self, chunk):
+        """Removes the given chunk from the image"""
+        self.chunks.remove(chunk)
+
+    def index_of_chunk(self, chunk):
+        """Returns the index of the given chunk in the image"""
+        return self.chunks.index(chunk)
+
+    def address_of_chunk(self, chunk):
+        """Returns the byte address of the given chunk.
+        Quite resource intensif as it calways need to count each previous chunk."""
+        add = len(_PNG_SIGNATURE)
+        if not chunk in self.chunks:
+            raise ValueError("chunk not in image")
+        for c in self.chunks:
+            if not c is chunk:
+                add += len(c.bytes)
+            else:
+                break
+        return add
+
+
+    def get_chunks_by_type(self, ty):
+        """Returns all the chunks of a given type"""
+        return tuple(filter(lambda c:c.type == ty, self.chunks))
 
 class PngChunk:
 
@@ -214,16 +245,15 @@ class PngChunk:
 
 _supported_chunks = chunks.implementations #Just making a local reference for easier access
 
-__opn = open
 def open(filename, ignore_signature=False):
     """Returns a Png object from the given file name."""
-    with __opn(filename, 'rb') as f:
+    with __builtins__['open'](filename, 'rb') as f:
         return Png(f.read(), ignore_signature=ignore_signature)
 
 def read_png_signature(data):
     return data[0:8] == _PNG_SIGNATURE
 
-def get_empty_chunk(t, realy_empty=False):
+def create_empty_chunk(t, realy_empty=False):
     """Creates and return an empty chunk of length of 0, with the type given.
     If realy_empty is not set, the chunk will be filled with default data
     to make it valid, if the type is suported"""
@@ -234,3 +264,10 @@ def get_empty_chunk(t, realy_empty=False):
     if not realy_empty:
         c._set_empty_data()
     return c
+
+def create_empty_png():
+    ihdr = create_empty_chunk('IHDR')
+    iend = create_empty_chunk('IEND')
+    idat = create_empty_chunk('IDAT')
+    data = _PNG_SIGNATURE + ihdr.bytes + idat.bytes + iend.bytes
+    return Png(data)
