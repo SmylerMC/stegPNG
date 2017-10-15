@@ -197,7 +197,7 @@ class ChunksRGB(ChunkImplementation):
 
     def __init__(self):
         super(ChunksRGB, self).__init__('sRGB',
-            empty_data=b'\x00', #TODO
+            empty_data=b'\x00',
         )
         self.rederingtypes = (
             "Perceptual",
@@ -235,6 +235,7 @@ class ChunksRGB(ChunkImplementation):
 class ChunktIME(ChunkImplementation):
 
     #TODO Test all of this
+
     def __init__(self):
         super(ChunktIME, self).__init__(
             'tIME',
@@ -305,6 +306,37 @@ class ChunktIME(ChunkImplementation):
         minute_ok = minute >= 0 and minute <= 59
         second_ok = second >= 0 and second <= 60
         return day_ok and month_ok and hour_ok and minute_ok and second_ok
+
+
+class ChunkgAMA(ChunkImplementation):
+
+    """""" #TODO Needs to be tested
+
+    def __init__(self):
+        super(ChunkgAMA, self).__init__('gAMA',
+            empty_data=b'\x00\x00\x00\x00',
+        )
+
+    def get_all(self, chunk):
+        return {
+                'gama': self.get('gama'),
+            }
+
+    def get(self, chunk, field):
+        if field == 'gama':
+            return unpack('>I', chunk.data[0:4])[0] / 100000
+        else:
+            raise KeyError()
+
+    def set(self, chunk, field, value):
+        if field == 'gama':
+            chunk.data = pack('>I', int(value * 100000))
+        else:
+            raise KeyError()
+
+    def _is_payload_valid(self, chunk):
+        return True
+
 
 implementations = {
     'IHDR': ChunkIHDR(),
