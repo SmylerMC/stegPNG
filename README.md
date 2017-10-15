@@ -36,7 +36,7 @@ Run setup.py:
 - [x] IEND
 - [ ] tRNS
 - [ ] cHRM
-- [ ] gAMA
+- [x] gAMA
 - [ ] iCCP
 - [ ] sBIT
 - [x] sRGB
