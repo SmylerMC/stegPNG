@@ -46,5 +46,5 @@ Run setup.py:
 - [ ] bKGD
 - [ ] pHYs
 - [ ] sPLT
-- [ ] tIME
+- [x] tIME
 - [ ] Any other proprietary chunk

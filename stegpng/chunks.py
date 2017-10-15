@@ -232,12 +232,87 @@ class ChunksRGB(ChunkImplementation):
     def _is_payload_valid(self, chunk):
         return self.get('rendering') in range(4)
 
+class ChunktIME(ChunkImplementation):
+
+    #TODO Test all of this
+    def __init__(self):
+        super(ChunktIME, self).__init__(
+            'tIME',
+            length=13,
+            empty_data=b'\x00\x00\x01\x01\x00\x00\x00',
+        )
+
+    def get_all(self, chunk):
+        return {
+            'year': self.get(chunk, 'year'),
+            'month': self.get(chunk, 'month'),
+            'day': self.get(chunk, 'day'),
+            'hour': self.get(chunk, 'hour'),
+            'minute': self.get(chunk, 'minute'),
+            'second': self.get(chunk, 'second'),
+        }
+
+    def get(self, chunk, field):
+        if field == 'year':
+            return unpack('>h', chunk.data[0:2])[0]
+        elif field == 'month':
+            return chunk.data[2]
+        elif field == 'day':
+            return chunk.data[3]
+        elif field == 'hour':
+            return chunk.data[4]
+        elif field == 'minute':
+            return chunk.data[5]
+        elif field == 'second':
+            return chunk.data[6]
+        else:
+            raise KeyError()
+
+    def set(self, chunk, field, value):
+        if field == 'year':
+            chunk.data = pack('>h', value) + chunk.data[2:]
+        elif field == 'month':
+            chunk.data = chunk.data[:2] + pack('B', value) + chunks.data[3:]
+        elif field == 'day':
+            chunk.data = chunk.data[:3] + pack('B', value) + chunks.data[4:]
+        elif field == 'hour':
+            chunk.data = chunk.data[:4] + pack('B', value) + chunks.data[5:]
+        elif field == 'minute':
+            chunk.data = chunk.data[:5] + pack('B', value) + chunks.data[6:]
+        elif field == 'second':
+            chunk.data = chunk.data[:6] + pack('B', value)
+        else:
+            raise KeyError()
+
+    def _is_payload_valid(self, chunk):
+        month = self.get(chunk, 'month')
+        day = self.get(chunk, 'day')
+        hour = self.get(chunk, 'hour')
+        minute = self.get(chunk, 'minute')
+        second = self.get(chunk, 'second')
+        month_ok = month >= 1 and month <= 12
+        if month in (1, 3, 5, 7, 8, 10, 12):
+            max_day = 31
+        elif month == 2:
+            if year % 4 == 0 and (year % 400 == 0 or year % 100 != 0):
+                max_day = 29
+            else:
+                max_day = 28
+        else:
+            max_day = 30
+        day_ok = day >= 1 and day <= max_day
+        hour_ok = hour >= 0 and hour <= 23
+        minute_ok = minute >= 0 and minute <= 59
+        second_ok = second >= 0 and second <= 60
+        return day_ok and month_ok and hour_ok and minute_ok and second_ok
+
 implementations = {
     'IHDR': ChunkIHDR(),
     'IDAT': ChunkIDAT(),
     'IEND': ChunkImplementation('IEND', length=0),
     'tEXt': ChunktEXt(),
     'sRGB': ChunksRGB(),
+    'tIME': ChunktIME(),
 }
 
 #TODO Update to new system... ============================================================================
@@ -262,26 +337,6 @@ class InfopHYs:
             self.ppuY = unpack('>I', chunk.data[4:8])[0]
             self.unit = chunk.data[8]
             self.isvalid = True
-        except Exception as e:
-            print(e)
-            self.isvalid = False
-
-
-class InfotIME:
-
-    def __init__(self, chunk):
-        try:
-            super(InfotIME, self).__init__(chunk)
-            self.year = unpack('>h', chunk.data[0:2])[0]
-            self.month = chunk.data[2]
-            self.day = chunk.data[3]
-            self.hour = chunk.data[4]
-            self.minute = chunk.data[5]
-            self.second = chunk.data[6]
-            if 1 <= self.month <= 12 and 1 <= self.day <= 31 and 0 <= self.hour <= 23 and 0 <= self.minute <= 59 and 0 <= self.second <= 60:
-                self.isvalid = True
-            else:
-                self.isvalid = False
         except Exception as e:
             print(e)
             self.isvalid = False
@@ -314,11 +369,3 @@ class InfoIDAT:
 
     def decompress(self):
         return decomp().decompress(self.chunk.data)
-
-
-
-
-
-
-#TODO Remove that after making sure it's not used
-types ={'IHDR': 13, 'PLTE': -2, 'IDAT':-1, 'IEND': 0, 'tRNS': -2, 'cHRM': -2, 'gAMA': 4, 'iCCP': -2, 'sBIT': -2, 'sRGB': 1, 'tEXt': -1, 'zTXt': -1, 'iTXt': -1, 'bKGD': -2, 'hIST': -2, 'pHYs':9, 'sPLT': -2, 'tIME': 7}
