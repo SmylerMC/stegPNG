@@ -247,8 +247,18 @@ _supported_chunks = chunks.implementations #Just making a local reference for ea
 
 def open(filename, ignore_signature=False):
     """Returns a Png object from the given file name."""
-    with __builtins__['open'](filename, 'rb') as f:
-        return Png(f.read(), ignore_signature=ignore_signature)
+    data = None
+    if filename.startswith('http://') or filename.startswith('https://'):
+        from requests import Session
+        sess = Session()
+        data = sess.get(filename).content
+    else:
+        with __builtins__['open'](filename, 'rb') as f:
+            data=f.read()
+    if data != None:
+        return Png(data, ignore_signature=ignore_signature)
+    else:
+        raise Exception("Unknown error...")
 
 def read_png_signature(data):
     return data[0:8] == _PNG_SIGNATURE
