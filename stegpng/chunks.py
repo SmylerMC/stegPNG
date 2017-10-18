@@ -170,8 +170,7 @@ class ChunktEXt(ChunkImplementation):
             raise InvalidChunkStructureException("invalid number of null byte separator in tEXt chunk")
         sep = chunk.data.find(0x00)
         keyword = unpack('{}s'.format(sep), chunk.data[0: sep])[0].decode('ascii')
-        #TODO Make sure an invalid encoding is handled with an exception, The chunk should aslo not be considered as valid, which is curently the case
-        text = unpack('{}s'.format(len(chunk.data) - sep - 1), chunk.data[sep + 1: len(chunk.data)])[0].decode('ascii')
+        text = unpack('{}s'.format(len(chunk.data) - sep - 1), chunk.data[sep + 1: len(chunk.data)])[0].decode('latin1')
         if field == 'text':
             return text
         elif field == 'keyword':
@@ -367,7 +366,7 @@ class ChunkzTXt(ChunkImplementation):  #TODO Not fully tested
         compression_code = chunk.data[sep + 1]
         if compression_code == 0:
             text = zlib.decompress(chunk.data[sep + 2:])
-            text = unpack('{}s'.format(len(text)), text)[0].decode('ascii')
+            text = unpack('{}s'.format(len(text)), text)[0].decode('latin1')
         else:
             raise UnsupportedCompressionMethodException()
         if field == 'text':
