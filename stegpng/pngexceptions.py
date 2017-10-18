@@ -12,3 +12,7 @@ class UnsupportedChunkException(Exception):
     """Raised when trying to understand an unsupported chunk"""
     def __init__(self):
         super(UnsupportedChunkException, self).__init__("This chunk type is not supported.")
+
+class UnsupportedCompressionMethodException(Exception):
+    def __init__(self):
+        super(UnsupportedCompressionMethodException, self).__init__("This compression method type is not supported.")

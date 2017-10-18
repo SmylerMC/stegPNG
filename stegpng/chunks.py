@@ -1,5 +1,6 @@
 from struct import pack, unpack
-from .pngexceptions import InvalidChunkStructureException
+from .pngexceptions import InvalidChunkStructureException, UnsupportedCompressionMethodException
+import zlib
 
 class ChunkImplementation:
 
@@ -136,7 +137,7 @@ class ChunkIHDR(ChunkImplementation):
             raise KeyError()
 
     def _is_payload_valid(self, chunk):
-        return self.get(chunk, 'bit_depth') in self.get(chunk, colortype_depth)
+        return self.get(chunk, 'bit_depth') in self.get(chunk, 'colortype_depth')
 
 class ChunkIDAT(ChunkImplementation):
 
@@ -154,7 +155,8 @@ class ChunktEXt(ChunkImplementation):
 
     def __init__(self):
         super(ChunktEXt, self).__init__('tEXt',
-            empty_data=b'\x00',
+            empty_data=b'A\x00',
+            minlength=2,
         )
 
     def get_all(self, chunk):
@@ -168,6 +170,7 @@ class ChunktEXt(ChunkImplementation):
             raise InvalidChunkStructureException("invalid number of null byte separator in tEXt chunk")
         sep = chunk.data.find(0x00)
         keyword = unpack('{}s'.format(sep), chunk.data[0: sep])[0].decode('ascii')
+        #TODO Make sure an invalid encoding is handled with an exception, The chunk should aslo not be considered as valid, which is curently the case
         text = unpack('{}s'.format(len(chunk.data) - sep - 1), chunk.data[sep + 1: len(chunk.data)])[0].decode('ascii')
         if field == 'text':
             return text
@@ -198,6 +201,7 @@ class ChunksRGB(ChunkImplementation):
     def __init__(self):
         super(ChunksRGB, self).__init__('sRGB',
             empty_data=b'\x00',
+            length=1,
         )
         self.rederingtypes = (
             "Perceptual",
@@ -208,8 +212,8 @@ class ChunksRGB(ChunkImplementation):
 
     def get_all(self, chunk):
         return {
-                'rendering_code': self.get('rendering_code'),
-                'rendering_name': self.get('rendering_name'),
+                'rendering_code': self.get(chunk, 'rendering_code'),
+                'rendering_name': self.get(chunk, 'rendering_name'),
             }
 
     def get(self, chunk, field):
@@ -217,7 +221,7 @@ class ChunksRGB(ChunkImplementation):
             return chunk.data[0]
         elif field == 'rendering_name':
             try:
-                return self.rederingtypes[self.get('rendering_code')]
+                return self.rederingtypes[self.get(chunk, 'rendering_code')]
             except KeyError:
                 raise InvalidChunkStructureException('invalid sRGB value')
         else:
@@ -230,7 +234,7 @@ class ChunksRGB(ChunkImplementation):
             raise KeyError()
 
     def _is_payload_valid(self, chunk):
-        return self.get('rendering') in range(4)
+        return self.get(chunk, 'rendering_code') in range(4)
 
 class ChunktIME(ChunkImplementation):
 
@@ -239,7 +243,7 @@ class ChunktIME(ChunkImplementation):
     def __init__(self):
         super(ChunktIME, self).__init__(
             'tIME',
-            length=13,
+            length=7,
             empty_data=b'\x00\x00\x01\x01\x00\x00\x00',
         )
 
@@ -286,6 +290,7 @@ class ChunktIME(ChunkImplementation):
             raise KeyError()
 
     def _is_payload_valid(self, chunk):
+        year = self.get(chunk, 'year')
         month = self.get(chunk, 'month')
         day = self.get(chunk, 'day')
         hour = self.get(chunk, 'hour')
@@ -315,11 +320,12 @@ class ChunkgAMA(ChunkImplementation):
     def __init__(self):
         super(ChunkgAMA, self).__init__('gAMA',
             empty_data=b'\x00\x00\x00\x00',
+            length=4,
         )
 
     def get_all(self, chunk):
         return {
-                'gama': self.get('gama'),
+                'gama': self.get(chunk, 'gama'),
             }
 
     def get(self, chunk, field):
@@ -338,6 +344,62 @@ class ChunkgAMA(ChunkImplementation):
         return True
 
 
+class ChunkzTXt(ChunkImplementation):  #TODO Not fully tested
+
+    def __init__(self):
+        super(ChunkzTXt, self).__init__('zTXt',
+            empty_data=b'A\x00\x00',
+            minlength=3,
+        )
+
+    def get_all(self, chunk):
+        return {'text': self.get(chunk, 'text'),
+                'keyword': self.get(chunk, 'keyword'),
+                'compression': self.get(chunk, 'compression')}
+
+    def get(self, chunk, field):
+        if field not in ('text', 'keyword', 'content', 'compression'):
+            raise KeyError()
+        if chunk.data.count(0x00) < 1:
+            raise InvalidChunkStructureException("invalid number of null byte separator in zTXt chunk")
+        sep = chunk.data.find(0x00)
+        keyword = unpack('{}s'.format(sep), chunk.data[0: sep])[0].decode('ascii')
+        compression_code = chunk.data[sep + 1]
+        if compression_code == 0:
+            text = zlib.decompress(chunk.data[sep + 2:])
+            text = unpack('{}s'.format(len(text)), text)[0].decode('ascii')
+        else:
+            raise UnsupportedCompressionMethodException()
+        if field == 'text':
+            return text
+        elif field == 'keyword':
+            return keyword
+        elif field == 'compression':
+            return compression_code
+        elif field == 'content':
+            return keyword, text
+
+    def set(self, chunk, field, value): #TODO
+        if field not in ('text', 'keyword'):
+            raise KeyError()
+        if chunk.data.count(0x00) < 1:
+            raise InvalidChunkStructureException("invalid number of null byte separator in zTXt chunk")
+        sep = chunk.data.find(0x00)
+        compression_code = chunk.data[sep + 1]
+        if field == 'text':
+            if compression_code == 0:
+                text = value.encode('ascii')
+                text = zlib.compress(text)
+                chunk.data = chunk.data[:sep + 2] + text
+            else:
+                raise UnsupportedCompressionMethodException()
+        elif field == 'keyword':
+            chunk.data = value.encode('ascii') + chunk.data[sep:]
+
+    def _is_payload_valid(self, chunk):
+        return chunk.data.count(0x00) >= 1 and chunk.data.find(0x00) <= 78
+
+
 implementations = {
     'IHDR': ChunkIHDR(),
     'IDAT': ChunkIDAT(),
@@ -345,21 +407,11 @@ implementations = {
     'tEXt': ChunktEXt(),
     'sRGB': ChunksRGB(),
     'tIME': ChunktIME(),
+    'gAMA': ChunkgAMA(),
+    'zTXt': ChunkzTXt(),
 }
 
 #TODO Update to new system... ============================================================================
-
-class InfogAMA:
-
-    def __init__(self, chunk):
-        try:
-            super(InfogAMA, self).__init__(chunk)
-            self.gama = unpack('>I', chunk.data[0:4])[0] / 100000
-            self.isvalid = True
-        except Exception as e:
-            print(e)
-            self.isvalid = False
-
 class InfopHYs:
 
     def __init__(self, chunk):

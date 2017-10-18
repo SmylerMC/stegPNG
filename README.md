@@ -42,7 +42,7 @@ Run setup.py:
 - [x] sRGB
 - [x] tEXt
 - [ ] iTXt
-- [ ] zTXt
+- [x] zTXt
 - [ ] bKGD
 - [ ] pHYs
 - [ ] sPLT
