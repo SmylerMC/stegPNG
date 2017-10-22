@@ -12,6 +12,8 @@ class Png:
         """The argument should be the bytes of a PNG file.
         The PNG.open(str) methode should be used to read a local file.
         The bytes are read from the constructor, so it can take some time for large images."""
+        if type(filebytes) != type(b''):
+            raise TypeError()
         if not ignore_signature and not read_png_signature(filebytes):
             raise pngexceptions.InvalidPngStructureException("missing PNG signature")
         self.__filebytes = filebytes
@@ -24,12 +26,6 @@ class Png:
             self.__read_chunks()
         return self.__chunks
 
-    @property
-    def file_end(self): #TODO
-        if self.__file_end is None:
-            self.__read_chunks()
-        return self.__file_end
-
     def __read_chunks(self):
         #TODO Handle malformed files with a fancy exception
         chunks = []
@@ -39,15 +35,19 @@ class Png:
         data = data[8:]
         no = -1
         while start <= end:
-            no += 1
-            length = unpack('>I', data[:4])[0]
-            chunk = PngChunk(data[:length + 12])
-            chunks.append(chunk)
-            start += length + 12
-            data = data[length + 12:]
-            if chunk.type == 'IEND':
-                self.__file_end = data
-                break
+                no += 1
+                length = unpack('>I', data[:4])[0]
+                chunk = PngChunk(data[:length + 12])
+                try:
+                    chunk_type = chunk.type
+                except UnicodeDecodeError:
+                    raise pngexceptions.InvalidPngStructureException("Failed to read chunk type at index {}".format(start))
+                chunks.append(chunk)
+                start += length + 12
+                data = data[length + 12:]
+                if chunk_type == 'IEND': #TODO Make this returns even if there is only garbage data after a non-iend chunk
+                    break
+        self.__file_end = data
         self.__chunks = chunks
 
     @property
@@ -108,16 +108,66 @@ class Png:
                 break
         return add
 
-
     def get_chunks_by_type(self, ty):
         """Returns all the chunks of a given type"""
         return tuple(filter(lambda c:c.type == ty, self.chunks))
+
+    @property
+    def extra_data(self):
+        if self.__file_end is None:
+            self.__read_chunks()
+        return self.__file_end
+
+    @extra_data.setter
+    def extra_data(self, value):
+        if type(value) != type(b''):
+            raise TypeError()
+        if self.__file_end is None:
+            self.__read_chunks()
+        self.__file_end = value
+
+    @property
+    def width(self):
+        if len(self.chunks) < 1 or self.chunks[0].type != 'IHDR':
+            raise pngexceptions.InvalidPngStructureException('missing IHDR chunk at the beginning of the file')
+        return self.chunks[0]['width']
+
+    @width.setter
+    def width(self, value):
+        if len(self.chunks) < 1 or self.chunks[0].type != 'IHDR':
+            raise pngexceptions.InvalidPngStructureException('missing IHDR chunk at the beginning of the file')
+        self.chunks[0]['width'] = value
+
+    @property
+    def height(self):
+        if len(self.chunks) < 1 or self.chunks[0].type != 'IHDR':
+            raise pngexceptions.InvalidPngStructureException('missing IHDR chunk at the beginning of the file')
+        return self.chunks[0]['height']
+
+    @height.setter
+    def height(self, value):
+        if len(self.chunks) < 1 or self.chunks[0].type != 'IHDR':
+            raise pngexceptions.InvalidPngStructureException('missing IHDR chunk at the beginning of the file')
+        self.chunks[0]['height'] = value
+
+    @property
+    def size(self):
+        if len(self.chunks) < 1 or self.chunks[0].type != 'IHDR':
+            raise pngexceptions.InvalidPngStructureException('missing IHDR chunk at the beginning of the file')
+        return self.chunks[0]['size']
+
+    @size.setter
+    def size(self, value):
+        if len(self.chunks) < 1 or self.chunks[0].type != 'IHDR':
+            raise pngexceptions.InvalidPngStructureException('missing IHDR chunk at the beginning of the file')
+        self.chunks[0]['size'] = value
 
 class PngChunk:
 
     def __init__(self, chunkbytes, edit=True, auto_update=True):
         """Creates a PngChunk from the bytes given in the chunkbytes parameter.
         It should include the chunk's size, type and crc checksum.
+        If to much data is given, it ignores everything after the encoded length
 
         If edit is set to False, doing anything that would change the bytes of the chunk throws an exception.
         If auto_update is True, the crc of the chunk will be updated when the data is changed.
@@ -129,9 +179,10 @@ class PngChunk:
         """
 
         if not type(chunkbytes) == type(b''):
-            raise TypeError("A PNG chunk should be created from bytes, not from {}".format(type(data).__name__  ))
+            raise TypeError("A PNG chunk should be created from bytes, not from {}".format(type(chunkbytes).__name__  ))
 
         self.__bytes = chunkbytes
+        self.__bytes = self.__bytes[:self.length + 12]
         self.edit = edit
         self.auto_update = auto_update
         self.__dirty = False
@@ -240,7 +291,7 @@ class PngChunk:
         return self.__get_implementation().get_all(self)
 
     def _set_empty_data(self):
-        """Replaces the current data with a garbage, but valid one provided by the implementation"""
+        """Replaces the current data with some valid garbage, provided by the implementation"""
         self.data = self.__get_implementation().empty_data
 
 _supported_chunks = chunks.implementations #Just making a local reference for easier access

@@ -109,9 +109,8 @@ class ChunkIHDR(ChunkImplementation):
 
     def set(self, chunk, field, value):
         if field == 'size':
-            width = pack('>I', value[0])
-            height = pack('>I', value[1])
-            chunk.data = width + height + chunk.data[8:]
+            self.set(chunk, 'width', value[0])
+            self.set(chunk, 'height', value[1])
         elif field == 'width':
             width = pack('>I', value)
             chunk.data = width + chunk.data[4:]
@@ -408,6 +407,7 @@ implementations = {
     'tIME': ChunktIME(),
     'gAMA': ChunkgAMA(),
     'zTXt': ChunkzTXt(),
+    #https://www.hackthis.co.uk/forum/programming-technology/27373-png-idot-chunk
 }
 
 #TODO Update to new system... ============================================================================
