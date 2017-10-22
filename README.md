@@ -7,11 +7,14 @@ Part of a future project.
 ```
 import stegpng
 img = stegpng.open('test.png')
+#We can manipulate the chunks directly
 chunk = img.chunks[0] #The first chunk of a png file should always be IHDR
-if chuk.type != "IHDR":
+if chunk.type != "IHDR":
   print("Not a valid png")
   exit()
 chunk['size'] = chunk['width'], int(chunk['height'] / 2) #This has a chance to break the image, but could also hide half of it.
+#Or, a much quicker solution which only works for the size of the image:
+img.size = img.width, int(img.height/2)
 img.save('test.png)
 ```
 
