@@ -56,11 +56,11 @@ class Png:
         b = _PNG_SIGNATURE
         for chunk in self.chunks:
             b += chunk.bytes
-        b += self.file_end
+        b += self.extra_data
         return b
 
     def save(self, fname):
-        with __builtins__['open'](fname, 'bw') as f: #This is not a typo, open() is being ovewriten
+        with __builtins__['open'](fname, 'bw') as f:
             f.write(self.bytes)
 
     def get_original(self):

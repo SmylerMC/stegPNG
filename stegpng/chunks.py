@@ -194,8 +194,6 @@ class ChunktEXt(ChunkImplementation):
 
 class ChunksRGB(ChunkImplementation):
 
-    """""" #TODO Needs to be tested
-
     def __init__(self):
         super(ChunksRGB, self).__init__('sRGB',
             empty_data=b'\x00',
@@ -227,7 +225,7 @@ class ChunksRGB(ChunkImplementation):
 
     def set(self, chunk, field, value):
         if field == 'rendering_code':
-            chunk.data[0] = b'' + value + chunk.data[1:]
+            chunk.data = pack('B', value)
         else:
             raise KeyError()
 
@@ -235,8 +233,6 @@ class ChunksRGB(ChunkImplementation):
         return self.get(chunk, 'rendering_code') in range(4)
 
 class ChunktIME(ChunkImplementation):
-
-    #TODO Test all of this
 
     def __init__(self):
         super(ChunktIME, self).__init__(
@@ -275,13 +271,13 @@ class ChunktIME(ChunkImplementation):
         if field == 'year':
             chunk.data = pack('>h', value) + chunk.data[2:]
         elif field == 'month':
-            chunk.data = chunk.data[:2] + pack('B', value) + chunks.data[3:]
+            chunk.data = chunk.data[:2] + pack('B', value) + chunk.data[3:]
         elif field == 'day':
-            chunk.data = chunk.data[:3] + pack('B', value) + chunks.data[4:]
+            chunk.data = chunk.data[:3] + pack('B', value) + chunk.data[4:]
         elif field == 'hour':
-            chunk.data = chunk.data[:4] + pack('B', value) + chunks.data[5:]
+            chunk.data = chunk.data[:4] + pack('B', value) + chunk.data[5:]
         elif field == 'minute':
-            chunk.data = chunk.data[:5] + pack('B', value) + chunks.data[6:]
+            chunk.data = chunk.data[:5] + pack('B', value) + chunk.data[6:]
         elif field == 'second':
             chunk.data = chunk.data[:6] + pack('B', value)
         else:
@@ -312,8 +308,6 @@ class ChunktIME(ChunkImplementation):
 
 
 class ChunkgAMA(ChunkImplementation):
-
-    """""" #TODO Needs to be tested
 
     def __init__(self):
         super(ChunkgAMA, self).__init__('gAMA',
@@ -350,6 +344,8 @@ class ChunkzTXt(ChunkImplementation):  #TODO Not fully tested
             minlength=3,
         )
 
+
+    """""" #TODO Needs to be tested
     def get_all(self, chunk):
         return {'text': self.get(chunk, 'text'),
                 'keyword': self.get(chunk, 'keyword'),
@@ -377,7 +373,7 @@ class ChunkzTXt(ChunkImplementation):  #TODO Not fully tested
         elif field == 'content':
             return keyword, text
 
-    def set(self, chunk, field, value): #TODO
+    def set(self, chunk, field, value):
         if field not in ('text', 'keyword'):
             raise KeyError()
         if chunk.data.count(0x00) < 1:
