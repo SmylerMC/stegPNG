@@ -422,46 +422,100 @@ class ChunkcHRM(ChunkImplementation):
         elif field == 'red_y':
             return unpack('>I', chunk.data[12:16])[0] / 100000
         elif field == 'green_x':
-            return unpack('B', chunk.data[16:20])[0] / 100000
+            return unpack('>I', chunk.data[16:20])[0] / 100000
         elif field == 'green_y':
             return unpack('>I', chunk.data[20:24])[0] / 100000
         elif field == 'blue_x':
-            return unpack('B', chunk.data[24:28])[0] / 100000
+            return unpack('>I', chunk.data[24:28])[0] / 100000
         elif field == 'blue_y':
-            return unpack('B', chunk.data[28:32])[0] / 100000
+            return unpack('>I', chunk.data[28:32])[0] / 100000
         else:
             raise KeyError()
 
     def set(self, chunk, field, value):
         if field == 'white_x':
-            val = pack('>I', val * 100000)
-            chunk.data = val + chunk.data[4:]
+            value = pack('>I', round(value * 100000))
+            chunk.data = value+ chunk.data[4:]
         elif field == 'white_y':
-            val = pack('>I', val * 100000)
-            chunk.data = chunk.data[:4] + val + chunk.data[8:]
+            value = pack('>I', round(value * 100000))
+            chunk.data = chunk.data[:4] + value + chunk.data[8:]
         elif field == 'red_x':
-            val = pack('>I', val * 100000)
-            chunk.data = chunk.data[:8] + val + chunk.data[12:]
+            value = pack('>I', round(value * 100000))
+            chunk.data = chunk.data[:8] + value + chunk.data[12:]
         elif field == 'red_y':
-            val = pack('>I', val * 100000)
-            chunk.data = chunk.data[:12] + val + chunk.data[16:]
+            value = pack('>I', round(value * 100000))
+            chunk.data = chunk.data[:12] + value + chunk.data[16:]
         elif field == 'green_x':
-            val = pack('>I', val * 100000)
-            chunk.data = chunk.data[:16] + val + chunk.data[20:]
+            value = pack('>I', round(value * 100000))
+            chunk.data = chunk.data[:16] + value + chunk.data[20:]
         elif field == 'green_y':
-            val = pack('>I', val * 100000)
-            chunk.data = chunk.data[:20] + val + chunk.data[24:]
+            value = pack('>I', round(value * 100000))
+            chunk.data = chunk.data[:20] + value + chunk.data[24:]
         elif field == 'blue_x':
-            val = pack('>I', val * 100000)
-            chunk.data = chunk.data[:24] + val + chunk.data[28:]
+            value = pack('>I', round(value * 100000))
+            chunk.data = chunk.data[:24] + value + chunk.data[28:]
         elif field == 'blue_y':
-            val = pack('>I', val * 100000)
-            chunk.data = chunk.data[:28] + val
+            value = pack('>I', round(value * 100000))
+            chunk.data = chunk.data[:28] + value
         else:
             raise KeyError()
 
     def _is_payload_valid(self, chunk):
         return True
+
+class ChunkpHYs(ChunkImplementation):
+
+    def __init__(self):
+        super(ChunkpHYs, self).__init__(
+            'pHYs',
+            length=9,
+            empty_data=b'\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        )
+
+    def get_all(self, chunk):
+        return {
+            'ppu_x': self.get(chunk, 'ppu_x'),
+            'ppu_y': self.get(chunk, 'ppu_y'),
+            'unit_code': self.get(chunk, 'unit_code'),
+            'unit_name': self.get(chunk, 'unit_name'),
+            'dpi': self.get(chunk, 'dpi'),
+        }
+
+    def get(self, chunk, field):
+        if field == 'ppu_x':
+            return unpack('>I', chunk.data[0:4])[0]
+        elif field == 'ppu_y':
+            return unpack('>I', chunk.data[4:8])[0]
+        elif field == 'unit_code':
+            return chunk.data[8]
+        elif field == 'unit_name':
+            code = self.get(chunk, 'unit_code')
+            if code == 0:
+                return 'unknown'
+            elif code == 1:
+                return 'meter'
+            else:
+                raise InvalidChunkStructureException("invalid unit code, only 1 or 0 allowed, found {}".format(code))
+        elif field == 'dpi':
+            return round(self.get(chunk, 'ppu_x') / 39.3701), round(self.get(chunk, 'ppu_y') / 39.3701)
+        else:
+            raise KeyError()
+
+    def set(self, chunk, field, value):
+        if field == 'ppu_x':
+            chunk.data = pack('>I', value) + chunk.data[4:]
+        elif field == 'ppu_y':
+            chunk.data = chunk.data[:4] + pack('>I', value) + chunk.data[8:]
+        elif field == 'unit_code':
+            chunk.data = chunk.data[:8] + pack('B', value)
+        elif field == 'dpi':
+            self.set(chunk, 'ppu_x', round(value[0] * 39.3701))
+            self.set(chunk, 'ppu_y', round(value[1] * 39.3701))
+        else:
+            raise KeyError()
+
+    def _is_payload_valid(self, chunk):
+        return self.get(chunk, 'unit_code') in range(1)
 
 implementations = {
     'IHDR': ChunkIHDR(),
@@ -473,19 +527,6 @@ implementations = {
     'gAMA': ChunkgAMA(),
     'zTXt': ChunkzTXt(),
     'cHRM': ChunkcHRM(),
+    'pHYs': ChunkpHYs(),
     #https://www.hackthis.co.uk/forum/programming-technology/27373-png-idot-chunk
 }
-
-#TODO Update to new system... ============================================================================
-class InfopHYs:
-
-    def __init__(self, chunk):
-        try:
-            super(InfopHYs, self).__init__(chunk)
-            self.ppuX = unpack('>I', chunk.data[0:4])[0] #FIXME
-            self.ppuY = unpack('>I', chunk.data[4:8])[0]
-            self.unit = chunk.data[8]
-            self.isvalid = True
-        except Exception as e:
-            print(e)
-            self.isvalid = False

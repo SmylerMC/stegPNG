@@ -44,7 +44,7 @@ Run setup.py:
 - [ ] iTXt
 - [x] zTXt
 - [ ] bKGD
-- [ ] pHYs
+- [x] pHYs
 - [ ] sPLT
 - [x] tIME
 - [ ] Any other proprietary chunk
