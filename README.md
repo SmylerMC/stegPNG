@@ -35,7 +35,7 @@ Run setup.py:
 - [ ] IDAT
 - [x] IEND
 - [ ] tRNS
-- [ ] cHRM
+- [x] cHRM
 - [x] gAMA
 - [ ] iCCP
 - [ ] sBIT

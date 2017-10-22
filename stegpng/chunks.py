@@ -168,7 +168,7 @@ class ChunktEXt(ChunkImplementation):
         if chunk.data.count(0x00) != 1 or chunk.data.find(0x00) > 78:
             raise InvalidChunkStructureException("invalid number of null byte separator in tEXt chunk")
         sep = chunk.data.find(0x00)
-        keyword = unpack('{}s'.format(sep), chunk.data[0: sep])[0].decode('ascii')
+        keyword = unpack('{}s'.format(sep), chunk.data[0: sep])[0].decode('latin1')
         text = unpack('{}s'.format(len(chunk.data) - sep - 1), chunk.data[sep + 1: len(chunk.data)])[0].decode('latin1')
         if field == 'text':
             return text
@@ -183,7 +183,7 @@ class ChunktEXt(ChunkImplementation):
         if chunk.data.count(0x00) != 1:
             raise InvalidChunkStructureException("invalid number of null byte separator in tEXt chunk")
         sep = chunk.data.find(0x00)
-        value = value.encode('ascii')
+        value = value.encode('latin1')
         if field == 'text':
             chunk.data = chunk.data[:sep + 1] + value
         elif field == 'keyword':
@@ -336,7 +336,7 @@ class ChunkgAMA(ChunkImplementation):
         return True
 
 
-class ChunkzTXt(ChunkImplementation):  #TODO Not fully tested
+class ChunkzTXt(ChunkImplementation):
 
     def __init__(self):
         super(ChunkzTXt, self).__init__('zTXt',
@@ -344,8 +344,6 @@ class ChunkzTXt(ChunkImplementation):  #TODO Not fully tested
             minlength=3,
         )
 
-
-    """""" #TODO Needs to be tested
     def get_all(self, chunk):
         return {'text': self.get(chunk, 'text'),
                 'keyword': self.get(chunk, 'keyword'),
@@ -393,6 +391,77 @@ class ChunkzTXt(ChunkImplementation):  #TODO Not fully tested
     def _is_payload_valid(self, chunk):
         return chunk.data.count(0x00) >= 1 and chunk.data.find(0x00) <= 78
 
+class ChunkcHRM(ChunkImplementation):
+
+    def __init__(self):
+        super(ChunkcHRM, self).__init__(
+            'cHRM',
+            length=32,
+            empty_data=b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        )
+
+    def get_all(self, chunk):
+        return {
+            'white_x': self.get(chunk, 'white_x'),
+            'white_y': self.get(chunk, 'white_y'),
+            'red_x': self.get(chunk, 'red_x'),
+            'red_y': self.get(chunk, 'red_y'),
+            'green_x': self.get(chunk, 'green_x'),
+            'green_y': self.get(chunk, 'green_y'),
+            'blue_x': self.get(chunk, 'blue_x'),
+            'blue_y': self.get(chunk, 'blue_y'),
+        }
+
+    def get(self, chunk, field):
+        if field == 'white_x':
+            return unpack('>I', chunk.data[0:4])[0] / 100000
+        elif field == 'white_y':
+            return unpack('>I', chunk.data[4:8])[0] / 100000
+        elif field == 'red_x':
+            return unpack('>I', chunk.data[8:12])[0] / 100000
+        elif field == 'red_y':
+            return unpack('>I', chunk.data[12:16])[0] / 100000
+        elif field == 'green_x':
+            return unpack('B', chunk.data[16:20])[0] / 100000
+        elif field == 'green_y':
+            return unpack('>I', chunk.data[20:24])[0] / 100000
+        elif field == 'blue_x':
+            return unpack('B', chunk.data[24:28])[0] / 100000
+        elif field == 'blue_y':
+            return unpack('B', chunk.data[28:32])[0] / 100000
+        else:
+            raise KeyError()
+
+    def set(self, chunk, field, value):
+        if field == 'white_x':
+            val = pack('>I', val * 100000)
+            chunk.data = val + chunk.data[4:]
+        elif field == 'white_y':
+            val = pack('>I', val * 100000)
+            chunk.data = chunk.data[:4] + val + chunk.data[8:]
+        elif field == 'red_x':
+            val = pack('>I', val * 100000)
+            chunk.data = chunk.data[:8] + val + chunk.data[12:]
+        elif field == 'red_y':
+            val = pack('>I', val * 100000)
+            chunk.data = chunk.data[:12] + val + chunk.data[16:]
+        elif field == 'green_x':
+            val = pack('>I', val * 100000)
+            chunk.data = chunk.data[:16] + val + chunk.data[20:]
+        elif field == 'green_y':
+            val = pack('>I', val * 100000)
+            chunk.data = chunk.data[:20] + val + chunk.data[24:]
+        elif field == 'blue_x':
+            val = pack('>I', val * 100000)
+            chunk.data = chunk.data[:24] + val + chunk.data[28:]
+        elif field == 'blue_y':
+            val = pack('>I', val * 100000)
+            chunk.data = chunk.data[:28] + val
+        else:
+            raise KeyError()
+
+    def _is_payload_valid(self, chunk):
+        return True
 
 implementations = {
     'IHDR': ChunkIHDR(),
@@ -403,6 +472,7 @@ implementations = {
     'tIME': ChunktIME(),
     'gAMA': ChunkgAMA(),
     'zTXt': ChunkzTXt(),
+    'cHRM': ChunkcHRM(),
     #https://www.hackthis.co.uk/forum/programming-technology/27373-png-idot-chunk
 }
 
@@ -419,32 +489,3 @@ class InfopHYs:
         except Exception as e:
             print(e)
             self.isvalid = False
-
-
-class InfotiTXt:
-
-    def __init__(self, chunk):
-        super(InfotiTXt, self).__init__(chunk)
-        try:
-            sep = -1
-            for i in range(len(chunk.data)):
-                if chunk.data[i] == 0x00:
-                    sep = i
-                    break
-            if sep != -1:
-                self.keyword = unpack('{}s'.format(sep), chunk.data[0: sep])[0].decode('ascii')
-                self.text = unpack('{}s'.format(len(chunk.data) - sep - 1), chunk.data[sep + 1: len(chunk.data)])[0].decode('UTF-8')
-                self.isvalid = True
-            else:
-                self.isvalid = False
-        except Exception as e:
-            print(e)
-            self.isvalid = False
-
-class InfoIDAT:
-
-    def __init__(self, chunk):
-        super(InfoIDAT, self).__init__(chunk)
-
-    def decompress(self):
-        return decomp().decompress(self.chunk.data)
