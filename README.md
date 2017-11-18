@@ -26,14 +26,30 @@ img.save('test.png)
 - [ ] Anything you would like me to implement
 
 ## Installation:
-Clone the repository:
+There are several ways to install stegpng, see below.
+
+### PIP
+Using pip is probably the easiest way to install a python package:
+```
+pip3 install stegpng
+```
+You may need to run the command with elevated priviledges.
+
+### Github
+If you really want the latest version, clone the repository:
 ```
 git clone https://github.com/WHGhost/stegPNG
 ```
 
-Run setup.py:
+And then, run setup.py:
 ```
-stegPNG/setup.py install
+./stegPNG/setup.py install
+```
+
+### Installing in editable mode:
+First, clone the github repository, and then, from the git repository, run
+```
+pip3 install -e .
 ```
 
 ### PNG chunks support:
