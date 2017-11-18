@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name="setgpng",
-    version="1.0.0a1",
+    version="1.0.0b1",
     url="https://github.com/WHGhost/stegPNG",
     description='A python package to make png steganography easier',
     long_description="""A pure python package with the goal to make png steganography and
@@ -16,7 +16,7 @@ setup(
         #   3 - Alpha
         #   4 - Beta
         #   5 - Production/Stable
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
         'Topic :: Software Development :: Libraries',
         'License :: OSI Approved :: GNU General Public License (GPL)',
