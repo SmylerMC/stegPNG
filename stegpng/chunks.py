@@ -621,6 +621,76 @@ class ChunkiTXt(ChunkImplementation):
     def _is_payload_valid(self, chunk):
         return chunk.data.count(0x00) >= 3 and chunk.data.find(0x00) <= 78
 
+
+class ChunkbKGD(ChunkImplementation):
+
+    #TODO A bit more fuzzing and tests one this
+
+    def __init__(self):
+        super(ChunkbKGD, self).__init__('bKGD',
+            empty_data=b'\x00',
+            length=(1, 2, 6),
+        )
+
+    def get_all(self, chunk):
+        return {'color_types': self.get(chunk, 'color_types'),
+                'color': self.get(chunk, 'color')}
+
+    def get(self, chunk, field):
+        if field == 'color_types':
+            if len(chunk) == 1:
+                return (3,)
+            elif len(chunk) == 2:
+                return (0, 4)
+            elif len(chunk) == 6:
+                return (2, 6)
+            else:
+                raise InvalidChunkStructureException("Invalid length for a bKGD chunk")
+        elif field == 'color':
+            if len(chunk) == 1:
+                return chunk.data[0]
+            elif len(chunk) == 2:
+                return unpack('>h', chunk.data)[0]
+            elif len(chunk) == 6:
+                return unpack('>h', chunk.data[:2])[0], unpack('>h', chunk.data[2:4])[0], unpack('>h', chunk.data[4:6])[0]
+            else:
+                raise InvalidChunkStructureException("Invalid length for a bKGD chunk")
+
+    def set(self, chunk, field, value):
+        if field == 'color_type':
+            if value == 3:
+                if not len(chunk) == 1:
+                    chunk.data = b'\x00'
+            elif value in (0, 4):
+                if not len(chunk) == 2:
+                    chunk.data = b'\x00\x00'
+            elif value in (2, 6):
+                if not len(chunk) == 2:
+                    chunk.data = b'\x00\x00\x00\x00\x00\x00'
+            else:
+                raise ValueError("Invalid value for color_type in bKGD chunk")
+        elif field == 'color':
+            if len(chunk) == 1:
+                if not (value >= 0 and value <= 255):
+                    raise ValueError("Palette index should be between 0 and 255")
+                chunk.data = pack('B', value)
+            elif len(chunk) == 2:
+                chunk.data = pack('>h', value)
+            elif len(chunk) == 6:
+                if len(value) != 3:
+                    raise ValueError("Backgroud color value should have 3 channels")
+                for x in value:
+                    if not type(x) is int:
+                        raise ValueError("Backgroud color value should only be integers")
+                    elif not (x >= 0 and x <= (1<<16)-1):
+                        raise ValueError("Palette index should be between 0 and 65535")
+                chunk.data = pack('>h', value[0]) + pack('>h', value[1]) + pack('>h', value[2])
+            else:
+                raise InvalidChunkStructureException("Invalid length for a bKGD chunk")
+
+    def _is_payload_valid(self, chunk):
+        return len(chunk) in (1, 2, 6)
+
 implementations = {
     'IHDR': ChunkIHDR(),
     'IDAT': ChunkIDAT(),
@@ -633,6 +703,7 @@ implementations = {
     'cHRM': ChunkcHRM(),
     'pHYs': ChunkpHYs(),
     'iTXt': ChunkiTXt(),
+    'bKGD': ChunkbKGD(),
     #https://www.hackthis.co.uk/forum/programming-technology/27373-png-idot-chunk
 }
 

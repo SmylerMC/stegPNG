@@ -66,7 +66,7 @@ pip3 install -e .
 - [x] tEXt
 - [x] iTXt
 - [x] zTXt
-- [ ] bKGD
+- [x] bKGD
 - [x] pHYs
 - [ ] sPLT
 - [x] tIME
