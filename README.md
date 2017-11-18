@@ -27,10 +27,14 @@ img.save('test.png)
 
 ## Installation:
 Clone the repository:
-```git clone https://github.com/WHGhost/stegPNG```
+```
+git clone https://github.com/WHGhost/stegPNG
+```
 
 Run setup.py:
-```stegPNG/setup.py install```
+```
+stegPNG/setup.py install
+```
 
 ### PNG chunks support:
 - [x] IHDR
