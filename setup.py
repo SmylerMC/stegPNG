@@ -24,7 +24,7 @@ setup(
     ],
     keywords='png library steganography image analysis ',
     packages=["stegpng"],
-    install_requires=[], #Will probably need Pillow in the future
+    install_requires=['requests'],
     python_requires='>=3',
     package_data={},
     data_files=[],
