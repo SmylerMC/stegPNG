@@ -14,8 +14,16 @@ class ChunkImplementation:
         self.type = chtype
         self.empty_data = empty_data
         if length != None:
-            self.maxlength = length
-            self.minlength = length
+            if isinstance(length, tuple):
+                for i in length:
+                    if not type(i) is int:
+                        raise TypeError("Possible lenghts should be integers.")
+                self.lengths = length
+            elif type(length) is int:
+                self.maxlength = length
+                self.minlength = length
+            else:
+                raise TypeError("lenght should be an integer or a tuple of integers")
         else:
             self.maxlength = maxlength
             self.minlength = minlength
@@ -24,7 +32,10 @@ class ChunkImplementation:
         """Returns True if the chunk's length is valid for that chunk.
         This not to be overriden in most case, the length, maxlength and minlength arguments
         of __init__ should be used."""
-        return chunk.type == self.type and len(chunk) <= self.maxlength and len(chunk) >= self.minlength
+        try:
+            return chunk.type == self.type and len(chunk) <= self.maxlength and len(chunk) >= self.minlength
+        except AttributeError:
+            return len(chunk) in self.lengths
 
     def is_valid(self, chunk):
         """Returns True if the chunk is valid.
