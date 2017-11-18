@@ -340,7 +340,7 @@ class ChunkzTXt(ChunkImplementation):
 
     def __init__(self):
         super(ChunkzTXt, self).__init__('zTXt',
-            empty_data=b'A\x00\x00',
+            empty_data=b'A\x00x\x9c\x03\x00\x00\x00\x00\x01',
             minlength=3,
         )
 
@@ -355,13 +355,13 @@ class ChunkzTXt(ChunkImplementation):
         if chunk.data.count(0x00) < 1:
             raise InvalidChunkStructureException("invalid number of null byte separator in zTXt chunk")
         sep = chunk.data.find(0x00)
-        keyword = unpack('{}s'.format(sep), chunk.data[0: sep])[0].decode('ascii')
+        keyword = unpack('{}s'.format(sep), chunk.data[0: sep])[0].decode('latin1')
         compression_code = chunk.data[sep + 1]
         if compression_code == 0:
             text = zlib.decompress(chunk.data[sep + 2:])
             text = unpack('{}s'.format(len(text)), text)[0].decode('latin1')
         else:
-            raise UnsupportedCompressionMethodException()
+            raise UnsupportedCompressionMethodException(code=compression_code)
         if field == 'text':
             return text
         elif field == 'keyword':
@@ -380,13 +380,13 @@ class ChunkzTXt(ChunkImplementation):
         compression_code = chunk.data[sep + 1]
         if field == 'text':
             if compression_code == 0:
-                text = value.encode('ascii')
+                text = value.encode('latin1')
                 text = zlib.compress(text)
                 chunk.data = chunk.data[:sep + 2] + text
             else:
                 raise UnsupportedCompressionMethodException()
         elif field == 'keyword':
-            chunk.data = value.encode('ascii') + chunk.data[sep:]
+            chunk.data = value.encode('latin1') + chunk.data[sep:]
 
     def _is_payload_valid(self, chunk):
         return chunk.data.count(0x00) >= 1 and chunk.data.find(0x00) <= 78
@@ -515,7 +515,100 @@ class ChunkpHYs(ChunkImplementation):
             raise KeyError()
 
     def _is_payload_valid(self, chunk):
-        return self.get(chunk, 'unit_code') in range(1)
+        return self.get(chunk, 'unit_code') in range(2)
+
+class ChunkiTXt(ChunkImplementation):
+
+    def __init__(self):
+        super(ChunkiTXt, self).__init__('iTXt',
+            empty_data=b'A\x00\x00\x00\x00A\x00',
+            minlength=12,
+        )
+
+    def get_all(self, chunk):
+        return {'keyword': self.get(chunk, 'keyword'),
+                'compressed': self.get(chunk, 'compressed'),
+                'compression_code': self.get(chunk, 'compression_code'),
+                'language': self.get(chunk, 'language'),
+                'translated_keyword': self.get(chunk, 'translated_keyword'),
+                'text': self.get(chunk, 'text'),
+                }
+
+    def get(self, chunk, field):
+        if field not in ('text', 'keyword', 'compression_code',
+                         'compressed', 'language', 'translated_keyword',):
+            raise KeyError()
+        if chunk.data.count(b'\x00') < 3:
+            raise InvalidChunkStructureException("invalid number of null byte separator in iTXt chunk")
+        sep1 = chunk.data.find(0x00)
+        if sep1 > 79:
+            raise InvalidChunkStructureException(
+                "iTXt keyword is too long, it should be at most 79 bytes and is {}".format(sep1)
+            )
+        sep2 = chunk.data.find(0x00, sep1+3)
+        sep3 = chunk.data.find(0x00, sep2+1)
+        if field == 'keyword':
+            return chunk.data[:sep1].decode('latin1')
+        elif field == 'language':
+            return chunk.data[sep1+3:sep2].decode('latin1')
+        elif field == 'translated_keyword':
+            return chunk.data[sep2+1:sep3].decode('utf-8')
+        compression_flag = chunk.data[sep1 + 1]
+        if field == 'compressed':
+            if compression_flag == 0:
+                return False
+            elif compression_flag == 1:
+                return True
+            else:
+                raise InvalidChunkStructureException('invalid compression flag, it sould be 0 or 1 and is {}'.format(compression_flag))
+        compression_code = chunk.data[sep1+2]
+        if field == 'compression_code':
+            return compression_code
+        if field == 'text':
+            data = chunk.data[sep3+1:]
+            if compression_flag == 0:
+                return data.decode('utf-8')
+            elif compression_flag == 1:
+                if compression_code == 0:
+                    return zlib.decompress(data).decode('utf-8')
+                else:
+                    raise UnsupportedCompressionMethodException()
+            else:
+                raise InvalidChunkStructureException('invalid compression flag, it sould be 0 or 1 and is {}'.format(compression_flag))
+        else:
+            raise KeyError()
+
+    def set(self, chunk, field, value):
+        sep1 = chunk.data.find(0x00)
+        sep2 = chunk.data.find(0x00, sep1+3)
+        sep3 = chunk.data.find(0x00, sep2+1)
+        if field == 'keyword':
+            chunk.data = value.encode('latin1') + chunk.data[sep1:]
+        elif field == 'compressed':
+            if value:
+                chunk.data = chunk.data[:sep1+1] + b'\x01' + chunk.data[sep1+2:]
+            else:
+                chunk.data = chunk.data[:sep1+1] + b'\x00' + chunk.data[sep1+2:]
+        elif field == 'compression_code':
+            chunk.data = chunk.data[:sep1+2] + pack('B', value) + chunk.data[sep1+3:]
+        elif field == 'language':
+                chunk.data = chunk.data[:sep1+3] + value.encode('latin1') + chunk.data[sep2:]
+        elif field == 'translated_keyword':
+            chunk.data = chunk.data[:sep2+1] + value.encode('utf-8') + chunk.data[sep3:]
+        elif field == 'text':
+            value = value.encode('utf-8')
+            if self.get(chunk, 'compressed'):
+                if self.get(chunk, 'compression_code') == 0:
+                    chunk.data = chunk.data[:sep3+1] + compress(value)
+                else:
+                    raise UnsupportedCompressionMethodException()
+            else:
+                chunk.data = chunk.data[:sep3+1] + value
+        else:
+            raise KeyError()
+
+    def _is_payload_valid(self, chunk):
+        return chunk.data.count(0x00) >= 3 and chunk.data.find(0x00) <= 78
 
 implementations = {
     'IHDR': ChunkIHDR(),
@@ -528,5 +621,8 @@ implementations = {
     'zTXt': ChunkzTXt(),
     'cHRM': ChunkcHRM(),
     'pHYs': ChunkpHYs(),
+    'iTXt': ChunkiTXt(),
     #https://www.hackthis.co.uk/forum/programming-technology/27373-png-idot-chunk
 }
+
+#TODO If the data to be compressed contain 16384 bytes or fewer, the PNG encoder may set the window size by rounding up to a power of 2 (256 minimum). This decreases the memory required for both encoding and decoding, without adversely affecting the compression ratio.
