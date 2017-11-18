@@ -287,6 +287,12 @@ class PngChunk:
     def __setitem__(self, index, value):
         self.__get_implementation().set(self, index, value)
 
+    def __repr__(self):
+        norm = super(PngChunk, self).__repr__()
+        norm = norm.rsplit(' ')
+        norm.insert(1, '[' + self.type +']')
+        return ' '.join(norm)
+
     def get_payload(self):
         return self.__get_implementation().get_all(self)
 
