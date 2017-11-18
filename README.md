@@ -61,7 +61,7 @@ pip3 install -e .
 - [x] cHRM
 - [x] gAMA
 - [ ] iCCP
-- [ ] sBIT
+- [x] sBIT
 - [x] sRGB
 - [x] tEXt
 - [x] iTXt
