@@ -661,10 +661,10 @@ class ChunkbKGD(ChunkImplementation):
             if value == 3:
                 if not len(chunk) == 1:
                     chunk.data = b'\x00'
-            elif value in (0, 4):
+            elif value in (0, 4) or value == (0, 4):
                 if not len(chunk) == 2:
                     chunk.data = b'\x00\x00'
-            elif value in (2, 6):
+            elif value in (2, 6) or value == (2, 6):
                 if not len(chunk) == 2:
                     chunk.data = b'\x00\x00\x00\x00\x00\x00'
             else:
@@ -691,6 +691,79 @@ class ChunkbKGD(ChunkImplementation):
     def _is_payload_valid(self, chunk):
         return len(chunk) in (1, 2, 6)
 
+class ChunksBIT(ChunkImplementation):
+
+    def __init__(self):
+        super(ChunksBIT, self).__init__('sBIT',
+            minlength=1,
+            maxlength=4,
+            empty_data=b'\x00',
+        )
+
+    def get_all(self, chunk):
+        return {'color_type': self.get(chunk, 'color_type'),
+                'significant_bits': self.get(chunk, 'significant_bits')}
+
+    def get(self, chunk, field):
+        if len(chunk) == 1:
+            color_type = 0
+            val = chunk.data[0]
+        elif len(chunk) == 2:
+            color_type = 4
+            val = chunk.data[0], chunk.data[1]
+        elif len(chunk) == 3:
+            color_type = (2, 3)
+            val = chunk.data[0], chunk.data[1], chunk.data[2]
+        elif len(chunk) == 4:
+            color_type = 6
+            val = chunk.data[0], chunk.data[1], chunk.data[2], chunk.data[3]
+        else:
+            raise InvalidChunkStructureException("sBIT chunk is to large")
+        if field == 'color_type':
+            return color_type
+        elif field == 'significant_bits':
+            return val
+        else:
+            raise KeyError()
+
+    def set(self, chunk, field, val):
+        if field == 'color_type':
+            if val == 0:
+                if not len(chunk) == 1:
+                    chunk.data == b'\x00'
+            elif val == 4:
+                if not len(chunk) == 2:
+                    chunk.data == b'\x00\x00'
+            elif val in (2, 3) or val == (2, 3):
+                if not len(chunk) == 3:
+                    chunk.data == b'\x00\x00\x00'
+            elif val == 6:
+                if not len(chunk) == 4:
+                    chunk.data == b'\x00\x00\x00\x00'
+            else:
+                print(val)
+                raise ValueError("invalid color type")
+        elif field == 'significant_bits':
+            t = self.get(chunk, 'color_type')
+            if t == 0:
+                if not type(val) is int or not (0<val and val<255):
+                    raise TypeError("Expecting an integer between 0 and 255")
+                chunk.data = pack('B', val)
+            else:
+                if not type(val) is tuple:
+                    raise ValueError('Excpecting a tuple')
+                v = b''
+                for x in val:
+                    if not type(x) is int or not(x>0 and 255>x):
+                        raise ValueError('Expecting a tuple of integers between 0 and 255')
+                    v += pack('B', x)
+                if (t, len(v)) not in ((4, 2), ((2, 3), 3), (6, 4)):
+                    raise ValueError('Invalid length for this specific color type')
+                chunk.data = v
+
+    def _is_payload_valid(self, chunk):
+        return True
+
 implementations = {
     'IHDR': ChunkIHDR(),
     'IDAT': ChunkIDAT(),
@@ -704,6 +777,7 @@ implementations = {
     'pHYs': ChunkpHYs(),
     'iTXt': ChunkiTXt(),
     'bKGD': ChunkbKGD(),
+    'sBIT': ChunksBIT(),
     #https://www.hackthis.co.uk/forum/programming-technology/27373-png-idot-chunk
 }
 
