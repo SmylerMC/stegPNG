@@ -3,7 +3,7 @@
 from setuptools import setup
 
 setup(
-    name="setgpng",
+    name="stegpng",
     version="1.0.0b1",
     url="https://github.com/WHGhost/stegPNG",
     description='A python package to make png steganography easier',
