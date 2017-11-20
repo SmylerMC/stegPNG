@@ -764,8 +764,48 @@ class ChunksBIT(ChunkImplementation):
     def _is_payload_valid(self, chunk):
         return True
 
+
+class ChunkPLTE(ChunkImplementation):
+
+    def __init__(self):
+        super(ChunkPLTE, self).__init__('PLTE',
+                                        empty_data=b'\x00\x00\x00',
+                                        minlength=3,
+                                        maxlength=768,)
+
+    def _is_length_valid(self, chunk):
+        """Overrides from superclass, it should only be valid if it is a multiple of 3"""
+        return len(chunk) % 3 == 0 and super(ChunkPLTE, self)._is_length_valid(chunk)
+
+    def get(self, chunk, index):
+        if not isinstance(index, int) or index < 0 or index > 256:
+            raise IndexError('Palette index should be an integer')
+        p = chunk.data[index * 3: index * 3 + 3]
+        return p[0], p[1], p[2]
+
+    def set(self, chunk, index, val):
+        if not isinstance(index, int) or index < 0 or index > 256:
+            raise ValueError('Palette index should be an integer')
+        if not isinstance(val, tuple) or len(val) != 3:
+            raise ValueError('Palette index should be a tuple of 3 integers')
+        for p in val:
+            if p > 255 or p < 0:
+                raise ValueError('Color values should be integers between 0 and 255')
+        v = pack('B', val[0]) + pack('B', val[1]) + pack('B', val[2])
+        chunk.data = chunk.data[:index * 3] + v + chunk.data[index * 3 + 3:]
+
+    def get_all(self, chunk):
+        if not self.is_valid(chunk):
+            raise InvalidChunkStructureException('Invalid PLTE chunk')
+        return tuple([self.get(chunk, i) for i in range(len(chunk) // 3)])
+
+    def _is_payload_valid(self, chunk):
+        return True
+
+
 implementations = {
     'IHDR': ChunkIHDR(),
+    'PLTE': ChunkPLTE(),
     'IDAT': ChunkIDAT(),
     'IEND': ChunkImplementation('IEND', length=0),
     'tEXt': ChunktEXt(),
@@ -781,4 +821,5 @@ implementations = {
     #https://www.hackthis.co.uk/forum/programming-technology/27373-png-idot-chunk
 }
 
+#TODO Use bytearrays
 #TODO If the data to be compressed contain 16384 bytes or fewer, the PNG encoder may set the window size by rounding up to a power of 2 (256 minimum). This decreases the memory required for both encoding and decoding, without adversely affecting the compression ratio.

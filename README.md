@@ -1,6 +1,6 @@
 # stegPNG
 A pure python 3 png library intended to make steganography and analysis easier.
-The library is still in alpha and misses lots of planned content.
+The library is still in beta and misses lots of planned content.
 Part of a future project.
 
 ## Example:
@@ -46,7 +46,7 @@ And then, run setup.py:
 ./stegPNG/setup.py install
 ```
 
-### Installing in editable mode:
+### Install in editable mode:
 First, clone the github repository, and then, from the git repository, run
 ```
 pip3 install -e .
@@ -54,7 +54,7 @@ pip3 install -e .
 
 ### PNG chunks support:
 - [x] IHDR
-- [ ] PLTE
+- [x] PLTE
 - [ ] IDAT
 - [x] IEND
 - [ ] tRNS
