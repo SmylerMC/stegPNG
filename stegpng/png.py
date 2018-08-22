@@ -2,7 +2,7 @@ from struct import unpack, pack
 from zlib import crc32 as crc
 from . import chunks
 from . import pngexceptions
-from .utils import compress, decompress
+from .utils import compress, decompress, paeth
 from math import ceil, floor
 
 _PNG_SIGNATURE = b'\x89PNG\r\n\x1a\n'
@@ -529,26 +529,14 @@ class ScanLine:
                         elif self.filtertype == 3:
                             unfiltered.append( (byte + floor((a+b) / 2)) % 256 )
                         elif self.filtertype == 4:
-                            unfiltered.append( (byte + self.__paeth(a, b, c)) % 256)
+                            unfiltered.append( (byte + paeth(a, b, c)) % 256)
                         else:
                             raise InvalidPNGException('Invalid filter type')
                 self.__unfiltered = bytes(unfiltered)
             self.__unfiltered_dirty = False
         return self.__unfiltered
-            
 
-    def __paeth(self, a, b, c):
-        p = a + b -c
-        pa = abs(p - a)
-        pb = abs(p - b)
-        pc = abs(p - c)
-        if pa <= pb and pa <= pc:
-            Pr = a
-        elif pb <= pc:
-            Pr = b
-        else:
-            Pr = c
-        return Pr
+
 
     @property
     def pixels(self):

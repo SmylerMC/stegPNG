@@ -18,3 +18,18 @@ def compress(data):
 
 def decompress(data):
     return zlib.decompress(data)
+
+def paeth(a, b, c):
+    """Implements the basic PAETH algorithm used to encode scanlines.
+    See the PNG documentation: https://www.w3.org/TR/PNG/#9Filter-type-4-Paeth"""
+    p = a + b - c
+    pa = abs(p - a)
+    pb = abs(p - b)
+    pc = abs(p - c)
+    if pa <= pb and pa <= pc:
+        Pr = a
+    elif pb <= pc:
+        Pr = b
+    else:
+        Pr = c
+    return Pr
