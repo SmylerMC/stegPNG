@@ -411,8 +411,6 @@ class ScanLine:
     This class is used internaly for decoding,
     but exists because scanlines could be used for steganography because of the filter type"""
 
-    #TODO Check data using the bitdepth and the number of channels
-
     def __init__(self, channelcount, bitdepth, previous, data=None, content=None, edit=True):
 
         #TODO Docstring
@@ -490,6 +488,7 @@ class ScanLine:
     @filtertype.setter
     def filtertype(self, val):
         #TODO test this for errors and maybe use bytearrays
+        #TODO check valid values and allow user to force using an invalid one
         if not self.edit:
             raise Exception("Trying to edit readonly scanline!")
         if type(val) != int:
@@ -507,7 +506,6 @@ class ScanLine:
         
                 
                 if self.filtertype == 0:
-                    print('Filter 0') #TODO RM DBG
                     unfiltered = self.data[1:]
                 else:
                     for indice, byte in enumerate(self.data[1:]):
@@ -525,16 +523,12 @@ class ScanLine:
                             c = self.__previous.unfiltered[indice - workingsize]
 
                         if self.filtertype == 1:
-                            print('Filter 1: SUB') #TODO RM DBG
                             unfiltered.append((byte + a) % 256)
                         elif self.filtertype == 2:
-                            print('Filter 2: UP') #TODO RM DBG
                             unfiltered.append((byte + b) % 256)
                         elif self.filtertype == 3:
-                            print('Flter 3: AVRG') #TODO RM DBG
                             unfiltered.append( (byte + floor((a+b) / 2)) % 256 )
                         elif self.filtertype == 4:
-                            print('Flter 4: PAETH') #TODO RM DBG
                             unfiltered.append( (byte + self.__paeth(a, b, c)) % 256)
                         else:
                             raise InvalidPNGException('Invalid filter type')
