@@ -69,6 +69,7 @@ class ChunkIHDR(ChunkImplementation):
             length=13,
             empty_data=b'\x00\x00\x00\x01\x00\x00\x00\x01\x01\x00\x00\x00\x00',
         )
+        # Name, bit depths, channel count
         self.__color_types = (
             ("Greyscale", (1,2, 4, 8, 16), 1),
             ("Wrong!!", None, None),
