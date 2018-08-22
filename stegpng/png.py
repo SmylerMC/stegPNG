@@ -216,7 +216,6 @@ class Png:
             channel_count = ihdr['channel_count']
             data = self.imagedata
             linesize = width * ceil(depth/8 * channel_count) + 1
-            print(linesize)
 
             # The first scanline is the only one which can't have reference to its upper pixels,
             # so we compute it first
@@ -457,7 +456,7 @@ class ScanLine:
         self.channelcount = channelcount
         self.bitdepth = bitdepth
         self.__unfiltered_dirty = True
-        self.__previous = previous
+        self._previous = previous
         
 
     @property
@@ -517,14 +516,14 @@ class ScanLine:
                             a = 0
                         else:
                             a = unfiltered[indice-workingsize]
-                        if self.__previous == None or self.filtertype not in (3, 4):
+                        if self._previous == None or self.filtertype not in (2, 3, 4):
                             b = 0
                         else:
-                            b = self.__previous.unfiltered[indice]
-                        if indice < workingsize or self.__previous == None or self.filtertype != 4:
+                            b = self._previous.unfiltered[indice]
+                        if indice < workingsize or self._previous == None or self.filtertype != 4:
                             c = 0
                         else:
-                            c = self.__previous.unfiltered[indice - workingsize]
+                            c = self._previous.unfiltered[indice - workingsize]
 
                         if self.filtertype == 1:
                             unfiltered.append((byte + a) % 256)
@@ -538,8 +537,18 @@ class ScanLine:
                             raise InvalidPNGException('Invalid filter type')
                 self.__unfiltered = bytes(unfiltered)
             elif not self.__pixels_dirty:
-                #TODO
-                raise NotImplementedError('Cannot decode unfiltered scanline data from pixels yet')
+                unfiltered = bytearray()
+
+                if self.bitdepth == 8:
+                    for pixel in self.pixels:
+                        for value in pixel:
+                            unfiltered.append(value)
+                    self.__unfiltered = bytes(unfiltered)
+                else:
+                    #TODO
+                    raise NotImplementedError('Only a bit depth of 8 is supported yet')
+            else:
+                raise Exception('Unnable to unfilter scanline. This is a bug, please report it')
             self.__unfiltered_dirty = False
         return self.__unfiltered
 
@@ -588,6 +597,7 @@ class ScanLine:
             raise e
         self.__pixels = pixels
         self.__data_dirty = True
+        self.__unfiltered_dirty = True
         
     def __checkpixels_args(self, pixels):
         """Used to verify that a pixels argument is valid"""
@@ -625,14 +635,14 @@ class ScanLine:
                         a = 0
                     else:
                         a = self.unfiltered[indice-workingsize]
-                    if self.__previous == None or self.filtertype not in (3, 4):
+                    if self._previous == None or self.filtertype not in (2, 3, 4):
                         b = 0
                     else:
-                        b = self.__previous.unfiltered[indice]
-                    if indice < workingsize or self.__previous == None or self.filtertype != 4:
+                        b = self._previous.unfiltered[indice]
+                    if indice < workingsize or self._previous == None or self.filtertype != 4:
                         c = 0
                     else:
-                        c = self.__previous.unfiltered[indice - workingsize]
+                        c = self._previous.unfiltered[indice - workingsize]
 
                     if self.filtertype == 1:
                         unfiltered.append((byte - a) % 256)
