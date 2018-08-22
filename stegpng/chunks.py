@@ -1,6 +1,6 @@
 from struct import pack, unpack
 from .pngexceptions import InvalidChunkStructureException, UnsupportedCompressionMethodException
-import zlib
+from .utils import compress, decompress
 
 class ChunkImplementation:
 
@@ -22,6 +22,7 @@ class ChunkImplementation:
             elif type(length) is int:
                 self.maxlength = length
                 self.minlength = length
+
             else:
                 raise TypeError("lenght should be an integer or a tuple of integers")
         else:
@@ -69,13 +70,13 @@ class ChunkIHDR(ChunkImplementation):
             empty_data=b'\x00\x00\x00\x01\x00\x00\x00\x01\x01\x00\x00\x00\x00',
         )
         self.__color_types = (
-        ("Greyscale", (1,2, 4, 8, 16)),
-        ("Wrong!!", None),
-        ("Truecolour", (8, 16)),
-        ("Indexed-colour", (1, 2, 4, 8)),
-        ("Greyscale with alpha", (8, 16)),
-        ("Wrong!!", None),
-        ("Truecolour with alpha", (8, 16))
+            ("Greyscale", (1,2, 4, 8, 16), 1),
+            ("Wrong!!", None, None),
+            ("Truecolour", (8, 16), 3),
+            ("Indexed-colour", (1, 2, 4, 8), 1),
+            ("Greyscale with alpha", (8, 16), 2),
+            ("Wrong!!", None, None),
+            ("Truecolour with alpha", (8, 16), 4)
         )
 
     def get_all(self, chunk):
@@ -87,7 +88,8 @@ class ChunkIHDR(ChunkImplementation):
             'bit_depth': self.get(chunk, 'bit_depth'),
             'compression': self.get(chunk, 'compression'),
             'filter_method': self.get(chunk, 'filter_method'),
-            'interlace': self.get(chunk, 'interlace')
+            'interlace': self.get(chunk, 'interlace'),
+            'channel_count': self.get(chunk, 'channel_count')
         }
 
     def get(self, chunk, field):
@@ -115,6 +117,9 @@ class ChunkIHDR(ChunkImplementation):
             return unpack('B', chunk.data[11:12])[0]
         elif field == 'interlace':
             return unpack('B', chunk.data[12:13])[0]
+        elif field == 'channel_count':
+            code = self.get(chunk, 'colortype_code')
+            return self.__color_types[code][2] 
         else:
             raise KeyError()
 
@@ -153,13 +158,14 @@ class ChunkIDAT(ChunkImplementation):
 
     """Not ready at all""" #TODO
     def __init__(self):
-        super(ChunkIDAT, self).__init__('IDAT')
+        super(ChunkIDAT, self).__init__('IDAT', minlength=1)
 
     def get_all(self, chunk):
-        return {'data': 'lots of data'}
+        return {'data': self.get(chunk, 'data')}
 
     def get(self, chunk, field):
-        pass
+        if field == 'data':
+            return chunk.data
 
 class ChunktEXt(ChunkImplementation):
 
@@ -369,7 +375,7 @@ class ChunkzTXt(ChunkImplementation):
         keyword = unpack('{}s'.format(sep), chunk.data[0: sep])[0].decode('latin1')
         compression_code = chunk.data[sep + 1]
         if compression_code == 0:
-            text = zlib.decompress(chunk.data[sep + 2:])
+            text = decompress(chunk.data[sep + 2:])
             text = unpack('{}s'.format(len(text)), text)[0].decode('latin1')
         else:
             raise UnsupportedCompressionMethodException(code=compression_code)
@@ -392,7 +398,7 @@ class ChunkzTXt(ChunkImplementation):
         if field == 'text':
             if compression_code == 0:
                 text = value.encode('latin1')
-                text = zlib.compress(text)
+                text = compress(text)
                 chunk.data = chunk.data[:sep + 2] + text
             else:
                 raise UnsupportedCompressionMethodException()
@@ -581,7 +587,7 @@ class ChunkiTXt(ChunkImplementation):
                 return data.decode('utf-8')
             elif compression_flag == 1:
                 if compression_code == 0:
-                    return zlib.decompress(data).decode('utf-8')
+                    return decompress(data).decode('utf-8')
                 else:
                     raise UnsupportedCompressionMethodException()
             else:
@@ -650,9 +656,9 @@ class ChunkbKGD(ChunkImplementation):
             if len(chunk) == 1:
                 return chunk.data[0]
             elif len(chunk) == 2:
-                return unpack('>h', chunk.data)[0]
+                return unpack('>H', chunk.data)[0]
             elif len(chunk) == 6:
-                return unpack('>h', chunk.data[:2])[0], unpack('>h', chunk.data[2:4])[0], unpack('>h', chunk.data[4:6])[0]
+                return unpack('>H', chunk.data[:2])[0], unpack('>H', chunk.data[2:4])[0], unpack('>H', chunk.data[4:6])[0]
             else:
                 raise InvalidChunkStructureException("Invalid length for a bKGD chunk")
 
@@ -675,7 +681,7 @@ class ChunkbKGD(ChunkImplementation):
                     raise ValueError("Palette index should be between 0 and 255")
                 chunk.data = pack('B', value)
             elif len(chunk) == 2:
-                chunk.data = pack('>h', value)
+                chunk.data = pack('>H', value)
             elif len(chunk) == 6:
                 if len(value) != 3:
                     raise ValueError("Backgroud color value should have 3 channels")
@@ -684,7 +690,8 @@ class ChunkbKGD(ChunkImplementation):
                         raise ValueError("Backgroud color value should only be integers")
                     elif not (x >= 0 and x <= (1<<16)-1):
                         raise ValueError("Palette index should be between 0 and 65535")
-                chunk.data = pack('>h', value[0]) + pack('>h', value[1]) + pack('>h', value[2])
+                #Some unsigned shorts were used here, make sure it was a unique mistake
+                chunk.data = pack('>H', value[0]) + pack('>H', value[1]) + pack('>H', value[2])
             else:
                 raise InvalidChunkStructureException("Invalid length for a bKGD chunk")
 
@@ -787,7 +794,7 @@ class ChunkPLTE(ChunkImplementation):
         if not isinstance(index, int) or index < 0 or index > 256:
             raise ValueError('Palette index should be an integer')
         if not isinstance(val, tuple) or len(val) != 3:
-            raise ValueError('Palette index should be a tuple of 3 integers')
+            raise ValueError('Palette value should be a tuple of 3 integers')
         for p in val:
             if p > 255 or p < 0:
                 raise ValueError('Color values should be integers between 0 and 255')
@@ -800,8 +807,57 @@ class ChunkPLTE(ChunkImplementation):
         return tuple([self.get(chunk, i) for i in range(len(chunk) // 3)])
 
     def _is_payload_valid(self, chunk):
-        return True
+        return True #TODO
 
+class ChunksPLT(ChunkImplementation):
+
+    def __init__(self):
+        super(ChunksPLT, self).__init__('sPLT',
+                                empty_data=b'\x00\x00',
+                                minlength=2,)
+
+    def _is_payload_valid(self, chunk):
+        """This is to be overriden for most chunks."""
+        return chunk.data == b'' #TODO
+
+    def get_all(self, chunk):
+        return {
+            'palette_name': self.get(chunk, 'palette_name'),
+            'sample_depth': self.get(chunk, 'sample_depth'),
+            'palette': self.get(chunk, 'palette')
+        }
+
+    def get(self, chunk, field):
+        sep = chunk.data.find(0x00)
+        if field == 'palette_name':
+            return chunk.data[:sep].decode('latin1')
+        sample_depth = chunk.data[sep + 1]
+        if field == 'sample_depth':
+            return sample_depth
+        elif field == 'palette':
+            l = len(chunk.data[sep + 2:])
+            if (sample_depth == 8 and l%6 != 0) or (sample_depth == 16 and l%8 != 0):
+                raise InvalidChunkStructureException("The sample depth of the sPLT chunk does not match the number of entries.")
+            if sample_depth not in (8, 16):
+                raise InvalidChunkStructureException("Wrong sample depth in sPLT chunk: {}".format(sample_depth))
+            clen = 1 if sample_depth == 8 else 2
+            plt = []
+            for i in range(0, l, clen * 4 +2):
+                entry = []
+                if clen == 1:
+                    for j in range(i, i+4):
+                        entry.append(chunk.data(j))
+                else:
+                    for j in range(i, i+8, 2):
+                        entry.append(unpack('>H', chunk.data[j:j+2])[0])
+                entry.append(unpack('>H', chunk.data[-2:])[0])
+                plt.append(tuple(entry))
+            return tuple(plt)
+
+
+    def set(self, chunk, field, value):
+        """This is to be overriden for most chunks."""
+        raise KeyError() #TODO
 
 implementations = {
     'IHDR': ChunkIHDR(),
@@ -818,8 +874,8 @@ implementations = {
     'iTXt': ChunkiTXt(),
     'bKGD': ChunkbKGD(),
     'sBIT': ChunksBIT(),
+    'sPLT': ChunksPLT(),
     #https://www.hackthis.co.uk/forum/programming-technology/27373-png-idot-chunk
 }
 
 #TODO Use bytearrays
-#TODO If the data to be compressed contain 16384 bytes or fewer, the PNG encoder may set the window size by rounding up to a power of 2 (256 minimum). This decreases the memory required for both encoding and decoding, without adversely affecting the compression ratio.

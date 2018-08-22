@@ -1,24 +1,35 @@
 from struct import unpack, pack
-from zlib import crc32 as crc, decompressobj as decomp
+from zlib import crc32 as crc
 from . import chunks
 from . import pngexceptions
+from .utils import compress, decompress
+from math import ceil, floor
 
 _PNG_SIGNATURE = b'\x89PNG\r\n\x1a\n'
 
 class Png:
     """Represents a PNG file to use for forensics analysis."""
 
-    def __init__(self,  filebytes, ignore_signature=False):
+    def __init__(self,  filebytes, ignore_signature=False, edit=True):
         """The argument should be the bytes of a PNG file.
         The PNG.open(str) methode should be used to read a local file.
         The bytes are read from the constructor, so it can take some time for large images."""
-        if type(filebytes) != type(b''):
+        if type(filebytes) not in (bytes, bytearray):
             raise TypeError()
+        if edit not in (True, False):
+            raise TypeError('Edit should be a boolean')
         if not ignore_signature and not read_png_signature(filebytes):
             raise pngexceptions.InvalidPngStructureException("missing PNG signature")
         self.__filebytes = filebytes
         self.__chunks = None
         self.__file_end = None
+        self.__scanlines = None
+        self.edit = edit
+
+        #True when the bytes changed but the scanlines have not been updated yet
+        self.__scanlines_dirty = True
+        #True when the bytes changed but the pixels have not been updated yet
+        self.__bytes_dirty = True
 
     @property
     def chunks(self):
@@ -114,6 +125,8 @@ class Png:
 
     @property
     def extra_data(self):
+        """Returns any remainning data after the IEND chunk.
+        If there is something, someone is probably trying to hide it"""
         if self.__file_end is None:
             self.__read_chunks()
         return self.__file_end
@@ -161,6 +174,96 @@ class Png:
         if len(self.chunks) < 1 or self.chunks[0].type != 'IHDR':
             raise pngexceptions.InvalidPngStructureException('missing IHDR chunk at the beginning of the file')
         self.chunks[0]['size'] = value
+    
+    @property
+    def datastream(self):
+        #TODO Setter
+        #TODO have a cache for that
+        """Returns the compressed data stream inside the IDAT chunks."""
+        stream = bytearray()
+        for chunk in self.get_chunks_by_type('IDAT'):
+            stream.extend(chunk.data)
+        return stream
+
+    @property
+    def imagedata(self):
+        #TODO setter
+        #TODO have a cache for that
+        """Returns the raw decompressed data from the IDAT chunks"""
+        return decompress(self.datastream) 
+
+    @property
+    def scanlines(self):
+        #TODO setter
+        """Returns the scanlines of the image, as a tuple of scanlines.
+        The scanline are sorted from top to bottom order."""
+        if self.__scanlines_dirty:
+            ihdr = self.get_chunks_by_type('IHDR')
+            if len(ihdr) != 1:
+                raise InvalidPngStructureException('There should be one and only one IHDR chunk!') 
+            ihdr = ihdr[0]
+            if ihdr['colortype_name'] == 'Indexed-colour':
+                raise Exception('Not yet implemented')
+            depth = ihdr['bit_depth']
+            if not depth in ihdr['colortype_depth']:
+                raise pngexception.MalformedChunkException(
+                        'Bit depth of {} is not allowed for color type {}'.format(
+                            depth,
+                            ihdr['colortype_name']
+                        )
+                )
+            width, height = self.size
+            channel_count = ihdr['channel_count']
+            data = self.imagedata
+            linesize = width * ceil(depth/8 * channel_count) + 1
+            print(linesize)
+
+            # The first scanline is the only one which can't have reference to its upper pixels,
+            # so we compute it first
+            lines = [ ScanLine( channel_count,
+                                depth,
+                                None,
+                                data=data[0:linesize],
+                                edit=self.edit
+                              ),
+                    ]
+            i = 1
+            while (i + 1) * linesize <= len(data):
+                s = ScanLine(
+                        channel_count,
+                        depth,
+                        lines[i-1],
+                        data=data[i*linesize:(i+1)*linesize]
+                    )
+                lines.append(s)
+                i += 1
+            self.__scanlines = lines
+            self.__scanlines_dirty = False
+        return self.__scanlines
+
+
+    def getpixel(self, position):
+        if type(position) not in (list, tuple):
+            raise TypeError('pixel position should be a tuple or a list: tuple(x, y)')
+        if len(position) != 2:
+            raise ValueError('pixel position should only contain 2 values: tuple(x, y)')
+        x, y = position
+        width, height = self.size
+        if x >= width:
+            raise IndexError(
+                    'the image has a width of {} but an x position of {} was given'.format(
+                        width, x
+                    )
+            )
+        if y >= height:
+            raise IndexError(
+                    'the image has an height of {} but an y position of {} was given'.format(
+                        height, y
+                    )
+            )
+        scanline = self.scanlines[y]
+        return scanline.pixels[x]
+
 
 class PngChunk:
 
@@ -178,7 +281,7 @@ class PngChunk:
         The crc checksum is calculated with the chunk type and data, but does not include the length header.
         """
 
-        if not type(chunkbytes) == type(b''):
+        if not type(chunkbytes) in (type(b''), bytearray):
             raise TypeError("A PNG chunk should be created from bytes, not from {}".format(type(chunkbytes).__name__  ))
 
         self.__bytes = chunkbytes
@@ -199,10 +302,12 @@ class PngChunk:
 
     @property
     def bytes(self):
+        """Returns the raw chunk as bytes"""
         return self.__bytes
 
     @property
     def crc(self):
+        """Returns the CRC checksum included in the chunk"""
         return unpack('!I', self.__bytes[-4:])[0]
 
     @crc.setter
@@ -300,6 +405,224 @@ class PngChunk:
         """Replaces the current data with some valid garbage, provided by the implementation"""
         self.data = self.__get_implementation().empty_data
 
+
+class ScanLine:
+    """Represents a scanline in a png datastream.
+    This class is used internaly for decoding,
+    but exists because scanlines could be used for steganography because of the filter type"""
+
+    #TODO Check data using the bitdepth and the number of channels
+
+    def __init__(self, channelcount, bitdepth, previous, data=None, content=None, edit=True):
+
+        #TODO Docstring
+
+        # Types and value checks
+        if type(previous) != ScanLine and previous != None:
+            raise TypeError(
+                'The previous argument should be a ScanLine or None, not {}'.format(
+                    type(previous))
+                )
+        if (data, content) == (None, None) :
+            raise ValueError(
+                "data and content can't be both None, please specify at least one")
+        elif data != None and content != None:
+            raise ValueError(
+                'Cannot have a value for both pixels and data, please specify only one')
+        if edit not in (True, False):
+            raise TypeError('argument readonly must be a boolean value')
+        if data != None and type(data) not in (bytearray, bytes):
+            raise TypeError('Scanline data must be byte or bytearray')
+        elif content != None and type(content) not in (list, tuple):
+            raise TypeError('content must be a tuple or a list')
+        if content != None:
+            if len(content) != 2 or type(content[0]) != int or type(content[1]) not in (tuple, list):
+                raise ValueError(
+                    "content should in the following format: (int filter, list/tuple pixels)")
+            try:
+                self.__checkpixels_args(content[1])
+            except Exception as e:
+                raise e
+
+        # Variables assignments
+        if content != None:
+            self.__filtertype, self.__pixels = content
+            self.__pixels_dirty = False
+            self.__filtertype_dirty = False
+            self.__data_dirty = True
+        elif data != None:
+            self.__data = data
+            self.__filtertype_dirty = True
+            self.__pixels_dirty = True
+            self.__data_dirty = False
+        self.edit = edit
+        self.channelcount = channelcount
+        self.bitdepth = bitdepth
+        self.__unfiltered_dirty = True
+        self.__previous = previous
+        
+
+    @property
+    def channelcount(self):
+        return self.__channelcount
+
+    @channelcount.setter
+    def channelcount(self, value):
+        #TODO check valid values
+        self.__channelcount = value
+    
+    @property
+    def bitdepth(self):
+        return self.__bitdepth
+
+    @bitdepth.setter
+    def bitdepth(self, value):
+        #TODO check valid values
+        self.__bitdepth = value
+    
+    @property
+    def filtertype(self):
+        if self.__filtertype_dirty:
+            self.__filtertype = self.data[0]
+            self.filertype_dirty = False
+        return self.__filtertype
+
+    @filtertype.setter
+    def filtertype(self, val):
+        #TODO test this for errors and maybe use bytearrays
+        if not self.edit:
+            raise Exception("Trying to edit readonly scanline!")
+        if type(val) != int:
+            raise TypeError("Filter type should be an integer")
+        self.__filtertype = val
+        self.__data_dirty = True
+
+    @property
+    def unfiltered(self):
+        if self.__unfiltered_dirty:
+            if not self.__data_dirty:
+                #TODO Implement scanline encoding
+                workingsize = ceil(self.channelcount * self.bitdepth / 8)
+                unfiltered = bytearray()
+        
+                
+                if self.filtertype == 0:
+                    print('Filter 0') #TODO RM DBG
+                    unfiltered = self.data[1:]
+                else:
+                    for indice, byte in enumerate(self.data[1:]):
+                        if indice < workingsize:
+                            a = 0
+                        else:
+                            a = unfiltered[indice-workingsize]
+                        if self.__previous == None:
+                            b = 0
+                        else:
+                            b = self.__previous.unfiltered[indice]
+                        if indice < workingsize or self.__previous == None:
+                            c = 0
+                        else:
+                            c = self.__previous.unfiltered[indice - workingsize]
+
+                        if self.filtertype == 1:
+                            print('Filter 1: SUB') #TODO RM DBG
+                            unfiltered.append((byte + a) % 256)
+                        elif self.filtertype == 2:
+                            print('Filter 2: UP') #TODO RM DBG
+                            unfiltered.append((byte + b) % 256)
+                        elif self.filtertype == 3:
+                            print('Flter 3: AVRG') #TODO RM DBG
+                            unfiltered.append( (byte + floor((a+b) / 2)) % 256 )
+                        elif self.filtertype == 4:
+                            print('Flter 4: PAETH') #TODO RM DBG
+                            unfiltered.append( (byte + self.__paeth(a, b, c)) % 256)
+                        else:
+                            raise InvalidPNGException('Invalid filter type')
+                self.__unfiltered = bytes(unfiltered)
+            self.__unfiltered_dirty = False
+        return self.__unfiltered
+            
+
+    def __paeth(self, a, b, c):
+        p = a + b -c
+        pa = abs(p - a)
+        pb = abs(p - b)
+        pc = abs(p - c)
+        if pa <= pb and pa <= pc:
+            Pr = a
+        elif pb <= pc:
+            Pr = b
+        else:
+            Pr = c
+        return Pr
+
+    @property
+    def pixels(self):
+        if self.__pixels_dirty:                
+            pixels = []
+            pixel = []
+            indice = 0
+            if self.bitdepth == 8:
+                for byte in self.unfiltered:
+                    pixel.append(byte)
+                    if len(pixel) == self.channelcount:
+                        pixels.append(tuple(pixel))
+                        pixel = []
+            else:
+                raise NotImplementedError()
+            #TODO ===================================================================
+            self.__pixels = tuple(pixels)
+            self.__pixels_dirty = False
+        return self.__pixels
+
+    @pixels.setter
+    def pixels(self, value):
+        if not self.edit:
+            raise Exception("Trying to edit readonly scanline!")
+        try:
+            self.__checkpixels_arg(pixels)
+        except Exception as e:
+            raise e
+        self.__pixels = pixels
+        self.__data_dirty = True
+        
+    def __checkpixels_args(self, pixels):
+        """Used to verify that a pixels argument is valid"""
+        l = None
+        for pixel in pixels:
+            if type(pixel) not in (list, tuple):
+                raise TypeError('pixels should be tuples or lists, not {}'.format(type(pixel)))
+            elif l == None:
+                l = len(pixel)
+            elif len(pixel) != l:
+                raise ValueError('All pixels should have the same length')
+            else:
+                for channel in pixel:
+                    if type(channel) != int:
+                        raise TypeError(
+                            'pixels should contain integers only, not {}'.format(type(channel)))
+        return True
+        
+
+    @property
+    def data(self):
+        if self.__data_dirty:
+            #TODO Implement data encoding for scanline
+            raise Exception('NOT YET IMPLEMENTED')
+        return self.__data
+
+    @data.setter
+    def data(self, val):
+        if not self.edit:
+            raise Exception("Trying to edit readonly scanline!")
+        if type(val) not in (bytes, bytearray):
+            raise TypeError("Data should be bytes or bytearray")
+        self.__data = data
+        self.__filtertype_dirty = True
+        self.__pixels_dirty = True
+
+
+
 _supported_chunks = chunks.implementations #Just making a local reference for easier access
 
 def open(filename, ignore_signature=False):
@@ -307,8 +630,7 @@ def open(filename, ignore_signature=False):
     data = None
     if filename.startswith('http://') or filename.startswith('https://'):
         from requests import Session
-        sess = Session()
-        data = sess.get(filename).content
+        data = requests.get(filename).content
     else:
         with __builtins__['open'](filename, 'rb') as f:
             data=f.read()
