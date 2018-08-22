@@ -500,7 +500,6 @@ class ScanLine:
     def unfiltered(self):
         if self.__unfiltered_dirty:
             if not self.__data_dirty:
-                #TODO Implement scanline encoding
                 workingsize = ceil(self.channelcount * self.bitdepth / 8)
                 unfiltered = bytearray()
         
@@ -509,15 +508,20 @@ class ScanLine:
                     unfiltered = self.data[1:]
                 else:
                     for indice, byte in enumerate(self.data[1:]):
+
+
+                        # b or c will be set to 0 if not required by the filtertype
+                        # This is done to avoid uneeded computation,
+                        # as they require the previous scanline to be also decoded
                         if indice < workingsize:
                             a = 0
                         else:
                             a = unfiltered[indice-workingsize]
-                        if self.__previous == None:
+                        if self.__previous == None or self.filtertype not in (3, 4):
                             b = 0
                         else:
                             b = self.__previous.unfiltered[indice]
-                        if indice < workingsize or self.__previous == None:
+                        if indice < workingsize or self.__previous == None or self.filtertype != 4:
                             c = 0
                         else:
                             c = self.__previous.unfiltered[indice - workingsize]
@@ -533,14 +537,31 @@ class ScanLine:
                         else:
                             raise InvalidPNGException('Invalid filter type')
                 self.__unfiltered = bytes(unfiltered)
+            elif not self.__pixels_dirty:
+                #TODO
+                raise NotImplementedError('Cannot decode unfiltered scanline data from pixels yet')
             self.__unfiltered_dirty = False
         return self.__unfiltered
 
 
+    @unfiltered.setter
+    def unfilterred(self, value):
+        if not self.edit:
+            raise Exception("Trying to edit readonly scanline!")
+        if type(value) not in (bytes, bytearray):
+            raise TypeError("An unfiltered scanline should be bytes or a bytearray")
+        if len(value) != len(self.unfiltered):
+            raise ValueError(
+                "Trying to set the unfiltered scanline with a length of the {} bytes, but the current one has a length of {}".format(len(value), len(unfiltered))
+            )
+        self.__unfiltered = value
+        self.__data_dirty = True
+        self.__pixels_dirty = True
+
 
     @property
     def pixels(self):
-        if self.__pixels_dirty:                
+        if self.__pixels_dirty:
             pixels = []
             pixel = []
             indice = 0
@@ -589,8 +610,41 @@ class ScanLine:
     @property
     def data(self):
         if self.__data_dirty:
-            #TODO Implement data encoding for scanline
-            raise Exception('NOT YET IMPLEMENTED')
+            workingsize = ceil(self.channelcount * self.bitdepth / 8)
+            filtered = bytearray()
+
+            if self.filtertype == 0:
+                filtered = self.unfiltered
+            else:
+                for indice, byte in enumerate(self.unfiltered):
+
+                    # b or c will be set to 0 if not required by the filtertype
+                    # This is done to avoid uneeded computation,
+                    # as they require the previous scanline to be also decoded
+                    if indice < workingsize:
+                        a = 0
+                    else:
+                        a = self.unfiltered[indice-workingsize]
+                    if self.__previous == None or self.filtertype not in (3, 4):
+                        b = 0
+                    else:
+                        b = self.__previous.unfiltered[indice]
+                    if indice < workingsize or self.__previous == None or self.filtertype != 4:
+                        c = 0
+                    else:
+                        c = self.__previous.unfiltered[indice - workingsize]
+
+                    if self.filtertype == 1:
+                        unfiltered.append((byte - a) % 256)
+                    elif self.filtertype == 2:
+                        unfiltered.append((byte - b) % 256)
+                    elif self.filtertype == 3:
+                        unfiltered.append( (byte - floor((a+b) / 2)) % 256 )
+                    elif self.filtertype == 4:
+                        unfiltered.append( (byte - paeth(a, b, c)) % 256)
+                    else:
+                        raise InvalidPNGException('Invalid filter type')
+            self.__data = pack('B', self.filtertype) + bytes(filtered)
         return self.__data
 
     @data.setter
