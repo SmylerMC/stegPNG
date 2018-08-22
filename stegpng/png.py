@@ -205,8 +205,6 @@ class Png:
         if ihdr['interlace'] != 0:
             raise Exception('Invalid interlace method: {}'.format(ihdr['interlace']))
         if self.__scanlines_dirty:
-            if ihdr['colortype_name'] == 'Indexed-colour':
-                raise Exception('Not yet implemented')
             depth = ihdr['bit_depth']
             if not depth in ihdr['colortype_depth']:
                 raise pngexception.MalformedChunkException(
@@ -215,6 +213,8 @@ class Png:
                             ihdr['colortype_name']
                         )
                 )
+            if ihdr['colortype_name'] == 'Indexed-colour':
+                depth = 8
             width, height = self.size
             channel_count = ihdr['channel_count']
             data = self.imagedata
@@ -263,8 +263,27 @@ class Png:
                         height, y
                     )
             )
+
+        if len(self.chunks) == 0:
+            raise InvalidPngStructureException('This png has no chunks')
+        ihdr = self.chunks[0]
+        if ihdr.type != 'IHDR':
+            raise InvalidPngStructureException('The first chunk of a png file should be an IHDR chunk')
         scanline = self.scanlines[y]
-        return scanline.pixels[x]
+        p = scanline.pixels[x]
+
+        # Indexed color
+        if ihdr['colortype_code'] == 2:
+            plte = self.chunks.get_chunks_by_type('PLTE')
+            if len(plte) == 0:
+                raise InvalidPNGException('Missing a PLTE chunk')
+            plte = plte[0]
+            p = plte[p]
+
+        if ihdr['channel_count'] == 1:
+            p = p[0]
+
+        return p
 
 
 class PngChunk:
