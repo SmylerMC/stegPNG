@@ -195,13 +195,16 @@ class Png:
     @property
     def scanlines(self):
         #TODO setter
+        #TODO Interlace support
         """Returns the scanlines of the image, as a tuple of scanlines.
         The scanline are sorted from top to bottom order."""
+        ihdr = self.get_chunks_by_type('IHDR')
+        if len(ihdr) != 1:
+            raise InvalidPngStructureException('There should be one and only one IHDR chunk!')
+        ihdr = ihdr[0]
+        if ihdr['interlace'] != 0:
+            raise Exception('Invalid interlace method: {}'.format(ihdr['interlace']))
         if self.__scanlines_dirty:
-            ihdr = self.get_chunks_by_type('IHDR')
-            if len(ihdr) != 1:
-                raise InvalidPngStructureException('There should be one and only one IHDR chunk!') 
-            ihdr = ihdr[0]
             if ihdr['colortype_name'] == 'Indexed-colour':
                 raise Exception('Not yet implemented')
             depth = ihdr['bit_depth']
