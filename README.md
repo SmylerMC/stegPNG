@@ -55,7 +55,7 @@ pip3 install -e .
 ### PNG chunks support:
 - [x] IHDR
 - [x] PLTE
-- [ ] IDAT
+- [x] IDAT (Interlaced images, bit depth other than 8 and indexation are not supported yet)
 - [x] IEND
 - [ ] tRNS
 - [x] cHRM
@@ -68,6 +68,6 @@ pip3 install -e .
 - [x] zTXt
 - [x] bKGD
 - [x] pHYs
-- [ ] sPLT
+- [x] sPLT (No writting support)
 - [x] tIME
 - [ ] Any other proprietary chunk
