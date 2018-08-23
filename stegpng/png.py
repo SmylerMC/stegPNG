@@ -1,7 +1,8 @@
 from struct import unpack, pack
 from zlib import crc32 as crc
 from . import chunks
-from . import pngexceptions
+from . import pngexceptions #TODO remove
+from .pngexceptions import *
 from .utils import compress, decompress, paeth
 from math import ceil, floor
 
@@ -273,10 +274,10 @@ class Png:
         p = scanline.pixels[x]
 
         # Indexed color
-        if ihdr['colortype_code'] == 2:
-            plte = self.chunks.get_chunks_by_type('PLTE')
+        if ihdr['colortype_code'] == 3:
+            plte = self.get_chunks_by_type('PLTE')
             if len(plte) == 0:
-                raise InvalidPNGException('Missing a PLTE chunk')
+                raise InvalidPngStructureException('Missing a PLTE chunk')
             plte = plte[0]
             p = plte[p]
 
