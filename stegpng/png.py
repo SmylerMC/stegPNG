@@ -278,10 +278,11 @@ class Png:
             plte = self.get_chunks_by_type('PLTE')
             if len(plte) == 0:
                 raise InvalidPngStructureException('Missing a PLTE chunk')
-            plte = plte[0]
+            plte = plte[0] #TODO Optimize this
+            p = p[0]
             p = plte[p]
 
-        if ihdr['channel_count'] == 1:
+        if ihdr['channel_count'] == 1 and ihdr['colortype_code'] != 3:
             p = p[0]
 
         return p
