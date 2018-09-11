@@ -813,13 +813,18 @@ class ChunkPLTE(ChunkImplementation):
 class ChunksPLT(ChunkImplementation):
 
     def __init__(self):
+        #TODO I have a doubt about wether or not the length is correct here, check it.
         super(ChunksPLT, self).__init__('sPLT',
                                 empty_data=b'\x00\x00',
                                 minlength=2,)
 
     def _is_payload_valid(self, chunk):
-        """This is to be overriden for most chunks."""
-        return chunk.data == b'' #TODO
+        try:
+            chunk.get_all()
+        except:
+            return False
+        else:
+            return True
 
     def get_all(self, chunk):
         return {
@@ -829,7 +834,7 @@ class ChunksPLT(ChunkImplementation):
         }
 
     def get(self, chunk, field):
-        sep = chunk.data.find(0x00)
+        sep = chunk.data.find(b'\x00')
         if field == 'palette_name':
             return chunk.data[:sep].decode('latin1')
         sample_depth = chunk.data[sep + 1]
@@ -857,8 +862,42 @@ class ChunksPLT(ChunkImplementation):
 
 
     def set(self, chunk, field, value):
-        """This is to be overriden for most chunks."""
-        raise KeyError() #TODO
+        #TODO Testing
+        sep = chunk.data.find(0x00)
+        if field == 'palette_name':
+            if type(value) == str:
+                value_bytes = value.encode('latin-1')
+            else:
+                raise TypeError("Invalid palette type for a palette name, found type {} instead of str.".format(type(value)))
+            chunk.data = value_bytes + chunk.data[sep: ]
+
+        elif field == 'sample_depth':
+            if len(chunk['palette']) != 0:
+                raise ValueError("You can't modify a sPLT chunk sample depth if the chunk's palette is not empty.")
+            chunk.data = chunk.data[:sep+1] + pack('B', sample_depth) + chunk.data[sep+2:]
+
+        elif field == 'palette':
+            if type(value) not in (tuple, list):
+                raise TypeError("Excepting palette to be a tuple or a list")
+            depth = chunk['sample_depth']
+            max_val = (1 << (depth+1)) -1
+            buff = bytearray()
+            for color in value:
+                if type(color) not in (tuple, list) or len(color) != 3:
+                    raise TypeError("A palette should contain tuples or lists of length 3")
+                for channel in color:
+                    if not type(channel) == int or not (channel > 0 and channel < max_val):
+                        raise TypeError('Palette channel values should be integers between 0 and {} (for this specific sample depth)'.format(max_val))
+                    if depth == 8:
+                        mode = 'B'
+                    elif depth == 16:
+                        mode == '>H'
+                    else:
+                        raise InvalidChunkStructureException('Invalid bit depth: {}'.format(depth))
+                    buff.append(pack(color))
+            chunk.data = chunk.data[:sep+3] + buff
+        else:
+            raise KeyError()
 
 implementations = {
     'IHDR': ChunkIHDR(),
