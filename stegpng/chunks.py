@@ -886,7 +886,7 @@ class ChunksPLT(ChunkImplementation):
                 if type(color) not in (tuple, list) or len(color) != 3:
                     raise TypeError("A palette should contain tuples or lists of length 3")
                 for channel in color:
-                    if not type(channel) == int or not (channel > 0 and channel < max_val):
+                    if not type(channel) == int or not (channel >= 0 and channel <= max_val):
                         raise TypeError('Palette channel values should be integers between 0 and {} (for this specific sample depth)'.format(max_val))
                     if depth == 8:
                         mode = 'B'
