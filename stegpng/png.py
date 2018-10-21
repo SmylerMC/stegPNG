@@ -20,7 +20,7 @@ class Png:
         if edit not in (True, False):
             raise TypeError('Edit should be a boolean')
         if not ignore_signature and not read_png_signature(filebytes):
-            raise pngexceptions.InvalidPngStructureException("missing PNG signature")
+            raise InvalidPngStructureException("missing PNG signature")
         self.__filebytes = filebytes
         self.__chunks = None
         self.__file_end = None
@@ -53,7 +53,7 @@ class Png:
                 try:
                     chunk_type = chunk.type
                 except UnicodeDecodeError:
-                    raise pngexceptions.InvalidPngStructureException("Failed to read chunk type at index {}".format(start))
+                    raise InvalidPngStructureException("Failed to read chunk type at index {}".format(start))
                 chunks.append(chunk)
                 start += length + 12
                 data = data[length + 12:]
@@ -143,37 +143,37 @@ class Png:
     @property
     def width(self):
         if len(self.chunks) < 1 or self.chunks[0].type != 'IHDR':
-            raise pngexceptions.InvalidPngStructureException('missing IHDR chunk at the beginning of the file')
+            raise InvalidPngStructureException('missing IHDR chunk at the beginning of the file')
         return self.chunks[0]['width']
 
     @width.setter
     def width(self, value):
         if len(self.chunks) < 1 or self.chunks[0].type != 'IHDR':
-            raise pngexceptions.InvalidPngStructureException('missing IHDR chunk at the beginning of the file')
+            raise InvalidPngStructureException('missing IHDR chunk at the beginning of the file')
         self.chunks[0]['width'] = value
 
     @property
     def height(self):
         if len(self.chunks) < 1 or self.chunks[0].type != 'IHDR':
-            raise pngexceptions.InvalidPngStructureException('missing IHDR chunk at the beginning of the file')
+            raise InvalidPngStructureException('missing IHDR chunk at the beginning of the file')
         return self.chunks[0]['height']
 
     @height.setter
     def height(self, value):
         if len(self.chunks) < 1 or self.chunks[0].type != 'IHDR':
-            raise pngexceptions.InvalidPngStructureException('missing IHDR chunk at the beginning of the file')
+            raise InvalidPngStructureException('missing IHDR chunk at the beginning of the file')
         self.chunks[0]['height'] = value
 
     @property
     def size(self):
         if len(self.chunks) < 1 or self.chunks[0].type != 'IHDR':
-            raise pngexceptions.InvalidPngStructureException('missing IHDR chunk at the beginning of the file')
+            raise InvalidPngStructureException('missing IHDR chunk at the beginning of the file')
         return self.chunks[0]['size']
 
     @size.setter
     def size(self, value):
         if len(self.chunks) < 1 or self.chunks[0].type != 'IHDR':
-            raise pngexceptions.InvalidPngStructureException('missing IHDR chunk at the beginning of the file')
+            raise InvalidPngStructureException('missing IHDR chunk at the beginning of the file')
         self.chunks[0]['size'] = value
     
     @property
@@ -208,7 +208,7 @@ class Png:
         if self.__scanlines_dirty:
             depth = ihdr['bit_depth']
             if not depth in ihdr['colortype_depth']:
-                raise pngexception.MalformedChunkException(
+                raise MalformedChunkException(
                         'Bit depth of {} is not allowed for color type {}'.format(
                             depth,
                             ihdr['colortype_name']
@@ -405,7 +405,7 @@ class PngChunk:
 
     def __get_implementation(self):
         if not self.is_supported():
-            raise pngexceptions.UnsupportedChunkException()
+            raise UnsupportedChunkException()
         global _supported_chunks
         return _supported_chunks[self.type]
 
