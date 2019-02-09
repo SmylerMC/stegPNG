@@ -38,26 +38,26 @@ class ChunkImplementation:
         except AttributeError:
             return len(chunk) in self.lengths
 
-    def is_valid(self, chunk):
+    def is_valid(self, chunk, ihdr=None, ihdrdata=None):
         """Returns True if the chunk is valid.
         It ignores the crc signature, use PngChunk#check_crc() for that.
         This method should normaly not be overriden as it checks the chunk's header
         and calls _is_payload_valid() to check the payload. This is what is to be overiden."""
         return self._is_length_valid(chunk) and self._is_payload_valid(chunk)
 
-    def _is_payload_valid(self, chunk):
+    def _is_payload_valid(self, chunk, ihdr=None, ihdrdata=None):
         """This is to be overriden for most chunks."""
         return chunk.data == b''
 
-    def get_all(self, chunk):
+    def get_all(self, chunk, ihdr=None, ihdrdata=None):
         """This is to be overriden for most chunks."""
         return {}
 
-    def get(self, chunk, field):
+    def get(self, chunk, field, ihdr=None, ihdrdata=None):
         """This is to be overriden for most chunks."""
         raise KeyError()
 
-    def set(self, chunk, field, value):
+    def set(self, chunk, field, value, ihdr=None, ihdrdata=None):
         """This is to be overriden for most chunks."""
         raise KeyError()
 
@@ -87,7 +87,7 @@ class ChunkIHDR(ChunkImplementation):
             ("Truecolour with alpha", (8, 16), 4)
         )
 
-    def get_all(self, chunk):
+    def get_all(self, chunk, ihdr=None, ihdrdata=None):
         return {
             'size': self.get(chunk, 'size'),
             'colortype_name': self.get(chunk, 'colortype_name'),
@@ -100,7 +100,7 @@ class ChunkIHDR(ChunkImplementation):
             'channel_count': self.get(chunk, 'channel_count')
         }
 
-    def get(self, chunk, field):
+    def get(self, chunk, field, ihdr=None, ihdrdata=None):
         if field == 'size':
             width = unpack('>I', chunk.data[0:4])[0]
             height = unpack('>I', chunk.data[4:8])[0]
@@ -131,7 +131,7 @@ class ChunkIHDR(ChunkImplementation):
         else:
             raise KeyError()
 
-    def set(self, chunk, field, value):
+    def set(self, chunk, field, value, ihdr=None, ihdrdata=None):
         if field == 'size':
             self.set(chunk, 'width', value[0])
             self.set(chunk, 'height', value[1])
@@ -159,7 +159,7 @@ class ChunkIHDR(ChunkImplementation):
         else:
             raise KeyError()
 
-    def _is_payload_valid(self, chunk):
+    def _is_payload_valid(self, chunk, ihdr=None, ihdrdata=None):
         return self.get(chunk, 'bit_depth') in self.get(chunk, 'colortype_depth')
 
 class ChunkIDAT(ChunkImplementation):
@@ -174,10 +174,10 @@ class ChunkIDAT(ChunkImplementation):
     def __init__(self):
         super(ChunkIDAT, self).__init__('IDAT', minlength=1)
 
-    def get_all(self, chunk):
+    def get_all(self, chunk, ihdr=None, ihdrdata=None):
         return {'data': self.get(chunk, 'data')}
 
-    def get(self, chunk, field):
+    def get(self, chunk, field, ihdr=None, ihdrdata=None):
         if field == 'data':
             return chunk.data
 
@@ -193,11 +193,11 @@ class ChunktEXt(ChunkImplementation):
             minlength=2,
         )
 
-    def get_all(self, chunk):
+    def get_all(self, chunk, ihdr=None, ihdrdata=None):
         return {'text': self.get(chunk, 'text'),
                 'keyword': self.get(chunk, 'keyword')}
 
-    def get(self, chunk, field):
+    def get(self, chunk, field, ihdr=None, ihdrdata=None):
         if field not in ('text', 'keyword', 'content'):
             raise KeyError()
         if chunk.data.count(0x00) != 1 or chunk.data.find(0x00) > 78:
@@ -213,7 +213,7 @@ class ChunktEXt(ChunkImplementation):
         elif field == 'content':
             return keyword, text
 
-    def set(self, chunk, field, value):
+    def set(self, chunk, field, value, ihdr=None, ihdrdata=None):
         if field not in ('text', 'keyword'):
             raise KeyError()
         if chunk.data.count(0x00) != 1:
@@ -225,7 +225,7 @@ class ChunktEXt(ChunkImplementation):
         elif field == 'keyword':
             chunk.data = value + chunk.data[sep:]
 
-    def _is_payload_valid(self, chunk):
+    def _is_payload_valid(self, chunk, ihdr=None, ihdrdata=None):
         return chunk.data.count(0x00) == 1 and chunk.data.find(0x00) <= 78
 
 class ChunksRGB(ChunkImplementation):
@@ -242,13 +242,13 @@ class ChunksRGB(ChunkImplementation):
             "Absolute colorimetric"
         )
 
-    def get_all(self, chunk):
+    def get_all(self, chunk, ihdr=None, ihdrdata=None):
         return {
                 'rendering_code': self.get(chunk, 'rendering_code'),
                 'rendering_name': self.get(chunk, 'rendering_name'),
             }
 
-    def get(self, chunk, field):
+    def get(self, chunk, field, ihdr=None, ihdrdata=None):
         if field == 'rendering_code':
             return chunk.data[0]
         elif field == 'rendering_name':
@@ -259,13 +259,13 @@ class ChunksRGB(ChunkImplementation):
         else:
             raise KeyError()
 
-    def set(self, chunk, field, value):
+    def set(self, chunk, field, value, ihdr=None, ihdrdata=None):
         if field == 'rendering_code':
             chunk.data = pack('B', value)
         else:
             raise KeyError()
 
-    def _is_payload_valid(self, chunk):
+    def _is_payload_valid(self, chunk, ihdr=None, ihdrdata=None):
         return self.get(chunk, 'rendering_code') in range(4)
 
 class ChunktIME(ChunkImplementation):
@@ -277,7 +277,7 @@ class ChunktIME(ChunkImplementation):
             empty_data=b'\x00\x00\x01\x01\x00\x00\x00',
         )
 
-    def get_all(self, chunk):
+    def get_all(self, chunk, ihdr=None, ihdrdata=None):
         return {
             'year': self.get(chunk, 'year'),
             'month': self.get(chunk, 'month'),
@@ -287,7 +287,7 @@ class ChunktIME(ChunkImplementation):
             'second': self.get(chunk, 'second'),
         }
 
-    def get(self, chunk, field):
+    def get(self, chunk, field, ihdr=None, ihdrdata=None):
         if field == 'year':
             return unpack('>h', chunk.data[0:2])[0]
         elif field == 'month':
@@ -303,7 +303,7 @@ class ChunktIME(ChunkImplementation):
         else:
             raise KeyError()
 
-    def set(self, chunk, field, value):
+    def set(self, chunk, field, value, ihdr=None, ihdrdata=None):
         if field == 'year':
             chunk.data = pack('>h', value) + chunk.data[2:]
         elif field == 'month':
@@ -319,7 +319,7 @@ class ChunktIME(ChunkImplementation):
         else:
             raise KeyError()
 
-    def _is_payload_valid(self, chunk):
+    def _is_payload_valid(self, chunk, ihdr=None, ihdrdata=None):
         year = self.get(chunk, 'year')
         month = self.get(chunk, 'month')
         day = self.get(chunk, 'day')
@@ -351,24 +351,24 @@ class ChunkgAMA(ChunkImplementation):
             length=4,
         )
 
-    def get_all(self, chunk):
+    def get_all(self, chunk, ihdr=None, ihdrdata=None):
         return {
                 'gama': self.get(chunk, 'gama'),
             }
 
-    def get(self, chunk, field):
+    def get(self, chunk, field, ihdr=None, ihdrdata=None):
         if field == 'gama':
             return unpack('>I', chunk.data[0:4])[0] / 100000
         else:
             raise KeyError()
 
-    def set(self, chunk, field, value):
+    def set(self, chunk, field, value, ihdr=None, ihdrdata=None):
         if field == 'gama':
             chunk.data = pack('>I', int(value * 100000))
         else:
             raise KeyError()
 
-    def _is_payload_valid(self, chunk):
+    def _is_payload_valid(self, chunk, ihdr=None, ihdrdata=None):
         return True
 
 
@@ -380,12 +380,12 @@ class ChunkzTXt(ChunkImplementation):
             minlength=3,
         )
 
-    def get_all(self, chunk):
+    def get_all(self, chunk, ihdr=None, ihdrdata=None):
         return {'text': self.get(chunk, 'text'),
                 'keyword': self.get(chunk, 'keyword'),
                 'compression': self.get(chunk, 'compression')}
 
-    def get(self, chunk, field):
+    def get(self, chunk, field, ihdr=None, ihdrdata=None):
         if field not in ('text', 'keyword', 'content', 'compression'):
             raise KeyError()
         if chunk.data.count(0x00) < 1:
@@ -407,7 +407,7 @@ class ChunkzTXt(ChunkImplementation):
         elif field == 'content':
             return keyword, text
 
-    def set(self, chunk, field, value):
+    def set(self, chunk, field, value, ihdr=None, ihdrdata=None):
         if field not in ('text', 'keyword'):
             raise KeyError()
         if chunk.data.count(0x00) < 1:
@@ -436,7 +436,7 @@ class ChunkcHRM(ChunkImplementation):
             empty_data=b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
         )
 
-    def get_all(self, chunk):
+    def get_all(self, chunk, ihdr=None, ihdrdata=None):
         return {
             'white_x': self.get(chunk, 'white_x'),
             'white_y': self.get(chunk, 'white_y'),
@@ -448,7 +448,7 @@ class ChunkcHRM(ChunkImplementation):
             'blue_y': self.get(chunk, 'blue_y'),
         }
 
-    def get(self, chunk, field):
+    def get(self, chunk, field, ihdr=None, ihdrdata=None):
         if field == 'white_x':
             return unpack('>I', chunk.data[0:4])[0] / 100000
         elif field == 'white_y':
@@ -468,7 +468,7 @@ class ChunkcHRM(ChunkImplementation):
         else:
             raise KeyError()
 
-    def set(self, chunk, field, value):
+    def set(self, chunk, field, value, ihdr=None, ihdrdata=None):
         if field == 'white_x':
             value = pack('>I', round(value * 100000))
             chunk.data = value+ chunk.data[4:]
@@ -496,7 +496,7 @@ class ChunkcHRM(ChunkImplementation):
         else:
             raise KeyError()
 
-    def _is_payload_valid(self, chunk):
+    def _is_payload_valid(self, chunk, ihdr=None, ihdrdata=None):
         return True
 
 class ChunkpHYs(ChunkImplementation):
@@ -508,7 +508,7 @@ class ChunkpHYs(ChunkImplementation):
             empty_data=b'\x00\x00\x00\x00\x00\x00\x00\x00\x00',
         )
 
-    def get_all(self, chunk):
+    def get_all(self, chunk, ihdr=None, ihdrdata=None):
         return {
             'ppu_x': self.get(chunk, 'ppu_x'),
             'ppu_y': self.get(chunk, 'ppu_y'),
@@ -517,7 +517,7 @@ class ChunkpHYs(ChunkImplementation):
             'dpi': self.get(chunk, 'dpi'),
         }
 
-    def get(self, chunk, field):
+    def get(self, chunk, field, ihdr=None, ihdrdata=None):
         if field == 'ppu_x':
             return unpack('>I', chunk.data[0:4])[0]
         elif field == 'ppu_y':
@@ -537,7 +537,7 @@ class ChunkpHYs(ChunkImplementation):
         else:
             raise KeyError()
 
-    def set(self, chunk, field, value):
+    def set(self, chunk, field, value, ihdr=None, ihdrdata=None):
         if field == 'ppu_x':
             chunk.data = pack('>I', value) + chunk.data[4:]
         elif field == 'ppu_y':
@@ -550,7 +550,7 @@ class ChunkpHYs(ChunkImplementation):
         else:
             raise KeyError()
 
-    def _is_payload_valid(self, chunk):
+    def _is_payload_valid(self, chunk, ihdr=None, ihdrdata=None):
         return self.get(chunk, 'unit_code') in range(2)
 
 class ChunkiTXt(ChunkImplementation):
@@ -561,7 +561,7 @@ class ChunkiTXt(ChunkImplementation):
             minlength=12,
         )
 
-    def get_all(self, chunk):
+    def get_all(self, chunk, ihdr=None, ihdrdata=None):
         return {'keyword': self.get(chunk, 'keyword'),
                 'compressed': self.get(chunk, 'compressed'),
                 'compression_code': self.get(chunk, 'compression_code'),
@@ -570,7 +570,7 @@ class ChunkiTXt(ChunkImplementation):
                 'text': self.get(chunk, 'text'),
                 }
 
-    def get(self, chunk, field):
+    def get(self, chunk, field, ihdr=None, ihdrdata=None):
         if field not in ('text', 'keyword', 'compression_code',
                          'compressed', 'language', 'translated_keyword',):
             raise KeyError()
@@ -614,7 +614,7 @@ class ChunkiTXt(ChunkImplementation):
         else:
             raise KeyError()
 
-    def set(self, chunk, field, value):
+    def set(self, chunk, field, value, ihdr=None, ihdrdata=None):
         sep1 = chunk.data.find(0x00)
         sep2 = chunk.data.find(0x00, sep1+3)
         sep3 = chunk.data.find(0x00, sep2+1)
@@ -657,11 +657,11 @@ class ChunkbKGD(ChunkImplementation):
             length=(1, 2, 6),
         )
 
-    def get_all(self, chunk):
+    def get_all(self, chunk, ihdr=None, ihdrdata=None):
         return {'color_types': self.get(chunk, 'color_types'),
                 'color': self.get(chunk, 'color')}
 
-    def get(self, chunk, field):
+    def get(self, chunk, field, ihdr=None, ihdrdata=None):
         if field == 'color_types':
             if len(chunk) == 1:
                 return (3,)
@@ -681,7 +681,7 @@ class ChunkbKGD(ChunkImplementation):
             else:
                 raise InvalidChunkStructureException("Invalid length for a bKGD chunk")
 
-    def set(self, chunk, field, value):
+    def set(self, chunk, field, value, ihdr=None, ihdrdata=None):
         if field == 'color_type':
             if value == 3:
                 if not len(chunk) == 1:
@@ -714,7 +714,7 @@ class ChunkbKGD(ChunkImplementation):
             else:
                 raise InvalidChunkStructureException("Invalid length for a bKGD chunk")
 
-    def _is_payload_valid(self, chunk):
+    def _is_payload_valid(self, chunk, ihdr=None, ihdrdata=None):
         return len(chunk) in (1, 2, 6)
 
 class ChunksBIT(ChunkImplementation):
@@ -726,11 +726,11 @@ class ChunksBIT(ChunkImplementation):
             empty_data=b'\x00',
         )
 
-    def get_all(self, chunk):
+    def get_all(self, chunk, ihdr=None, ihdrdata=None):
         return {'color_type': self.get(chunk, 'color_type'),
                 'significant_bits': self.get(chunk, 'significant_bits')}
 
-    def get(self, chunk, field):
+    def get(self, chunk, field, ihdr=None, ihdrdata=None):
         if len(chunk) == 1:
             color_type = 0
             val = chunk.data[0]
@@ -752,7 +752,7 @@ class ChunksBIT(ChunkImplementation):
         else:
             raise KeyError()
 
-    def set(self, chunk, field, val):
+    def set(self, chunk, field, val, ihdr=None, ihdrdata=None):
         if field == 'color_type':
             if val == 0:
                 if not len(chunk) == 1:
@@ -787,7 +787,7 @@ class ChunksBIT(ChunkImplementation):
                     raise ValueError('Invalid length for this specific color type')
                 chunk.data = v
 
-    def _is_payload_valid(self, chunk):
+    def _is_payload_valid(self, chunk, ihdr=None, ihdrdata=None):
         return True
 
 
@@ -799,17 +799,17 @@ class ChunkPLTE(ChunkImplementation):
                                         minlength=3,
                                         maxlength=768,)
 
-    def _is_length_valid(self, chunk):
+    def _is_length_valid(self, chunk, ihdr=None, ihdrdata=None):
         """Overrides from superclass, it should only be valid if it is a multiple of 3"""
         return len(chunk) % 3 == 0 and super(ChunkPLTE, self)._is_length_valid(chunk)
 
-    def get(self, chunk, index):
+    def get(self, chunk, index, ihdr=None, ihdrdata=None):
         if not isinstance(index, int) or index < 0 or index > 256:
             raise IndexError('Palette index should be an integer')
         p = chunk.data[index * 3: index * 3 + 3]
         return p[0], p[1], p[2]
 
-    def set(self, chunk, index, val):
+    def set(self, chunk, index, val, ihdr=None, ihdrdata=None):
         if not isinstance(index, int) or index < 0 or index > 256:
             raise ValueError('Palette index should be an integer')
         if not isinstance(val, tuple) or len(val) != 3:
@@ -820,12 +820,12 @@ class ChunkPLTE(ChunkImplementation):
         v = pack('B', val[0]) + pack('B', val[1]) + pack('B', val[2])
         chunk.data = chunk.data[:index * 3] + v + chunk.data[index * 3 + 3:]
 
-    def get_all(self, chunk):
+    def get_all(self, chunk, ihdr=None, ihdrdata=None):
         if not self.is_valid(chunk):
             raise InvalidChunkStructureException('Invalid PLTE chunk')
         return tuple([self.get(chunk, i) for i in range(len(chunk) // 3)])
 
-    def _is_payload_valid(self, chunk):
+    def _is_payload_valid(self, chunk, ihdr=None, ihdrdata=None):
         return True #TODO
 
 class ChunksPLT(ChunkImplementation):
@@ -836,7 +836,7 @@ class ChunksPLT(ChunkImplementation):
                                 empty_data=b'\x00\x00',
                                 minlength=2,)
 
-    def _is_payload_valid(self, chunk):
+    def _is_payload_valid(self, chunk, ihdr=None, ihdrdata=None):
         try:
             chunk.get_all()
         except:
@@ -844,14 +844,14 @@ class ChunksPLT(ChunkImplementation):
         else:
             return True
 
-    def get_all(self, chunk):
+    def get_all(self, chunk, ihdr=None, ihdrdata=None):
         return {
             'palette_name': self.get(chunk, 'palette_name'),
             'sample_depth': self.get(chunk, 'sample_depth'),
             'palette': self.get(chunk, 'palette')
         }
 
-    def get(self, chunk, field):
+    def get(self, chunk, field, ihdr=None, ihdrdata=None):
         sep = chunk.data.find(b'\x00')
         if field == 'palette_name':
             return chunk.data[:sep].decode('latin1')
@@ -879,7 +879,7 @@ class ChunksPLT(ChunkImplementation):
             return tuple(plt)
 
 
-    def set(self, chunk, field, value):
+    def set(self, chunk, field, value, ihdr=None, ihdrdata=None):
         #TODO Testing
         sep = chunk.data.find(0x00)
         if field == 'palette_name':
@@ -927,15 +927,20 @@ class ChunktRNS(ChunkImplementation):
     def _is_payload_valid(self, chunk):
         return True
 
-    def get_all(self, chunk):
-        #TODO
-        out = {
-            '': self.get(chunk, 'palette_name'),
-            'sample_depth': self.get(chunk, 'sample_depth'),
-            'palette': self.get(chunk, 'palette')
-        }
+    def get_all(self, chunk, ihdr=None, ihdrdata=None):
+        out = self.get(chunk, 'palette', ihdr=ihdr, ihdrdata=ihdrdata)
 
-    def get(self, chunk, colortype):
+    def get(self, chunk, field, ihdr=None, ihdrdata=None):
+        if field != "palette":
+            raise KeyError("Unvalid key: {}".format(field))
+
+        if ihdr and ihdr.type == 'IHDR':
+            colortype = ihdr['colortype_code']
+        elif ihdrdata and type(ihdrdata) == dict:
+            colortype = ihdr.get('colortype_code')
+        else:
+            raise ValueError("Either valid ihdr or ihdrdata argument required.")
+
         if (colortype == 0 and len(chunk.data) % 2 != 0) or colortype == 2 and len(chunk.data) % 6 != 0:
             raise InvalidChunkStructureException('Invalid length for color type {}'.format(colortype))
         l = []
@@ -951,13 +956,14 @@ class ChunktRNS(ChunkImplementation):
                 l.append(tuple(p))
         elif colortype == 3:
             l = [ i for i in chunk.data ]
+        
         else:
             raise ValueError('Invalid colortype: {}, only 0, 2 and 3 accepted'.format(colortype))
         return tuple(l)
 
 
 
-    def set(self, chunk, field, value):
+    def set(self, chunk, field, value, ihdr=None, ihdrdata=None):
         #TODO Testing
         sep = chunk.data.find(0x00)
         if field == 'palette_name':

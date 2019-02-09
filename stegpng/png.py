@@ -307,6 +307,7 @@ class Png:
 class PngChunk:
 
     def __init__(self, chunkbytes, edit=True, auto_update=True):
+
         """Creates a PngChunk from the bytes given in the chunkbytes parameter.
         It should include the chunk's size, type and crc checksum.
         If to much data is given, it ignores everything after the encoded
@@ -433,11 +434,20 @@ class PngChunk:
         global _supported_chunks
         return _supported_chunks[self.type]
 
-    def __getitem__(self, index):
-        return self.__get_implementation().get(self, index)
+    def getitem(self, key, ihdr=None, ihdrdata=None):
+        """Returns the value of the given key in the chunk by querying the correct implementation.
+        Some chunks, need additional information from the IHDR chunk to be decoded.
+        This information can be provided through the ihdr and ihdrdata keywords."""
+        return self.__get_implementation().get(self, key, ihdr=ihdr, ihdrdata=ihdrdata)
 
-    def __setitem__(self, index, value):
-        self.__get_implementation().set(self, index, value)
+    def __getitem__(self, key):
+        return self.getitem(key)
+
+    def setitem(self, key, value, ihdr=None, ihdrdata=None):
+        self.__get_implementation().set(self, key, value, ihdr=ihdr, ihdrdata=ihdrdata)
+
+    def __setitem__(self, key, value):
+        self.setitem(key, value)
 
     def __repr__(self):
         norm = super(PngChunk, self).__repr__()
@@ -445,8 +455,15 @@ class PngChunk:
         norm.insert(1, '[' + self.type +']')
         return ' '.join(norm)
 
-    def get_payload(self):
-        return self.__get_implementation().get_all(self)
+    def get_payload(self, ihdr=None, ihdrdata=None):
+        """Returns the entire content of the chunk. It is likely to be a dictionarry,
+        but some chunk types, such as tose describing palettes, may return a list or bytes.
+        Some chunks, need additional information from the IHDR chunk to be decoded.
+        This information can be provided through the ihdr and ihdrdata keywords.
+        E.g.:   chunk.get_payload(ihdr=img.chunks[0])
+                chunk.get_payload(ihdrdata={'colortype_code': 0})
+        """
+        return self.__get_implementation().get_all(self, ihdr=ihdr, ihdrdata=ihdrdata)
 
     def _set_empty_data(self):
         """Replaces the current data with some valid garbage, provided by the implementation"""
