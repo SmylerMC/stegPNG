@@ -1,7 +1,11 @@
 # Byte-compiled / optimized / DLL files
 
 #Our test things
-test*
+tests/scraperlogs/*
+tests/reports/*
+tests/test_files/new/*
+tests/test_files/error/*
+tests/test_files/fine/*
 
 __pycache__/
 *.py[cod]

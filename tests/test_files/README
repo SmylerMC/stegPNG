@@ -1,0 +1,12 @@
+This directory is maint contain various test files.
+
+Only the crasher directory should contain actual files on the public repository, as they are from the free libpng software (but may have been modified).
+Other test images has been scraped from the internet and will not be distributed here.
+The libpng license may be found in the appropriate directory (/tests/testfiles/crashers).
+
+The test process has been automated in /tests/tester.py, to perform some test, one may add png files to the 'new' directory,
+and run '../tester.py masstest'. This will move any file from the 'error' and 'fine' directorys to the 'new' directory,
+and then test each file individually and place it back in the appropriate directory.
+'../tester.py stats' may also be used, it will perform the same operation, but will gather statistics about the files, and will take much longer to run.
+
+TODO: As of commit 3e591597b5654812f4ec7fdc0938c6d95a36c3b3, this is all work in progress.
