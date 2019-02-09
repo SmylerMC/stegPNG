@@ -63,6 +63,13 @@ class ChunkImplementation:
 
 class ChunkIHDR(ChunkImplementation):
 
+    """The IHDR chunk is the file header. It MUST be present at the begining of the file,
+    following directly after the PNG file signature. Some implementations may ignore any
+    chunk preceding it, allowing for some sort of steganography. The presence of any other
+    chunk at the begining of a file is therefore very likely to indicate hidden content
+    and must be checked.
+    The IHDR chunk contains critical information to decode the image."""
+
     def __init__(self):
         super(ChunkIHDR, self).__init__(
             'IHDR',
@@ -157,7 +164,13 @@ class ChunkIHDR(ChunkImplementation):
 
 class ChunkIDAT(ChunkImplementation):
 
-    """Not ready at all""" #TODO
+    """IDAT chunks contain the compressed image datastream, eventualy splited
+    over multiple IDAT chunks.
+    This chunk is critical, a valid image MUST contain at least one IDAT chunk,
+    which has to be placed after the IHDR chunk and before the IEND chunk.
+
+    Not ready at all""" #TODO
+
     def __init__(self):
         super(ChunkIDAT, self).__init__('IDAT', minlength=1)
 
@@ -169,6 +182,10 @@ class ChunkIDAT(ChunkImplementation):
             return chunk.data
 
 class ChunktEXt(ChunkImplementation):
+
+    """tEXt chunks contain text information. They are made a a keyword (max 78 bytes),
+    and the text itself, separated by a null byte. The texts must ba valid latin-1.
+    Keywords may follow common practices to encode specific information. This is not decoded here."""
 
     def __init__(self):
         super(ChunktEXt, self).__init__('tEXt',
@@ -187,7 +204,8 @@ class ChunktEXt(ChunkImplementation):
             raise InvalidChunkStructureException("invalid number of null byte separator in tEXt chunk")
         sep = chunk.data.find(0x00)
         keyword = unpack('{}s'.format(sep), chunk.data[0: sep])[0].decode('latin1')
-        text = unpack('{}s'.format(len(chunk.data) - sep - 1), chunk.data[sep + 1: len(chunk.data)])[0].decode('latin1')
+        textlen = len(chunk.data) - sep - 1
+        text = unpack('{}s'.format(textlen), chunk.data[sep + 1: len(chunk.data)])[0].decode('latin1')
         if field == 'text':
             return text
         elif field == 'keyword':
@@ -899,6 +917,86 @@ class ChunksPLT(ChunkImplementation):
         else:
             raise KeyError()
 
+class ChunktRNS(ChunkImplementation):
+
+    def __init__(self):
+        super(ChunktRNS, self).__init__('tRNS',
+                                empty_data=b'\x00',
+                                minlength=1,)
+
+    def _is_payload_valid(self, chunk):
+        return True
+
+    def get_all(self, chunk):
+        #TODO
+        out = {
+            '': self.get(chunk, 'palette_name'),
+            'sample_depth': self.get(chunk, 'sample_depth'),
+            'palette': self.get(chunk, 'palette')
+        }
+
+    def get(self, chunk, colortype):
+        if (colortype == 0 and len(chunk.data) % 2 != 0) or colortype == 2 and len(chunk.data) % 6 != 0:
+            raise InvalidChunkStructureException('Invalid length for color type {}'.format(colortype))
+        l = []
+        if colortype == 0:
+            for i in range(0, len(chunk.data), 2):
+                l.append(unpack('H', chunk.data[i: i+2])[0])
+
+        if colortype == 2:
+            for i in range(0, len(chunk.data), 6):
+                p = []
+                for j in range(i, i+6, 2):
+                    b.append(unpack('H', chunk.data[i+j: i+j+2])[0])
+                l.append(tuple(p))
+        elif colortype == 3:
+            l = [ i for i in chunk.data ]
+        else:
+            raise ValueError('Invalid colortype: {}, only 0, 2 and 3 accepted'.format(colortype))
+        return tuple(l)
+
+
+
+    def set(self, chunk, field, value):
+        #TODO Testing
+        sep = chunk.data.find(0x00)
+        if field == 'palette_name':
+            if type(value) == str:
+                value_bytes = value.encode('latin-1')
+            else:
+                raise TypeError("Invalid palette type for a palette name, found type {} instead of str.".format(type(value)))
+            chunk.data = value_bytes + chunk.data[sep: ]
+
+        elif field == 'sample_depth':
+            if len(chunk['palette']) != 0:
+                raise ValueError("You can't modify a sPLT chunk sample depth if the chunk's palette is not empty.")
+            chunk.data = chunk.data[:sep+1] + pack('B', sample_depth) + chunk.data[sep+2:]
+
+        elif field == 'palette':
+            if type(value) not in (tuple, list):
+                raise TypeError("Excepting palette to be a tuple or a list")
+            depth = chunk['sample_depth']
+            max_val = (1 << (depth+1)) -1
+            buff = bytearray()
+            for color in value:
+                if type(color) not in (tuple, list) or len(color) != 3:
+                    raise TypeError("A palette should contain tuples or lists of length 3")
+                for channel in color:
+                    if not type(channel) == int or not (channel >= 0 and channel <= max_val):
+                        raise TypeError('Palette channel values should be integers between 0 and {} (for this specific sample depth)'.format(max_val))
+                    if depth == 8:
+                        mode = 'B'
+                    elif depth == 16:
+                        mode == '>H'
+                    else:
+                        raise InvalidChunkStructureException('Invalid bit depth: {}'.format(depth))
+                    buff.append(pack(color))
+            chunk.data = chunk.data[:sep+3] + buff
+        else:
+            raise KeyError()
+
+
+
 implementations = {
     'IHDR': ChunkIHDR(),
     'PLTE': ChunkPLTE(),
@@ -915,6 +1013,7 @@ implementations = {
     'bKGD': ChunkbKGD(),
     'sBIT': ChunksBIT(),
     'sPLT': ChunksPLT(),
+    'tRNS': ChunktRNS(),
     #https://www.hackthis.co.uk/forum/programming-technology/27373-png-idot-chunk
 }
 
