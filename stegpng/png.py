@@ -14,7 +14,8 @@ class Png:
     def __init__(self,  filebytes, ignore_signature=False, edit=True):
         """The argument should be the bytes of a PNG file.
         The PNG.open(str) methode should be used to read a local file.
-        The bytes are read from the constructor, so it can take some time for large images."""
+        The bytes are read from the constructor,
+        so it can take some time for large images."""
         if type(filebytes) not in (bytes, bytearray):
             raise TypeError()
         if edit not in (True, False):
@@ -53,7 +54,9 @@ class Png:
                 try:
                     chunk_type = chunk.type
                 except UnicodeDecodeError:
-                    raise InvalidPngStructureException("Failed to read chunk type at index {}".format(start))
+                    raise InvalidPngStructureException(
+                        "Failed to read chunk type at index {}".format(start)
+                        )
                 chunks.append(chunk)
                 start += length + 12
                 data = data[length + 12:]
@@ -143,37 +146,50 @@ class Png:
     @property
     def width(self):
         if len(self.chunks) < 1 or self.chunks[0].type != 'IHDR':
-            raise InvalidPngStructureException('missing IHDR chunk at the beginning of the file')
+            raise InvalidPngStructureException(
+                    'missing IHDR chunk at the beginning of the file'
+                )
+
         return self.chunks[0]['width']
 
     @width.setter
     def width(self, value):
         if len(self.chunks) < 1 or self.chunks[0].type != 'IHDR':
-            raise InvalidPngStructureException('missing IHDR chunk at the beginning of the file')
+            raise InvalidPngStructureException(
+                    'missing IHDR chunk at the beginning of the file'
+                )
         self.chunks[0]['width'] = value
 
     @property
     def height(self):
         if len(self.chunks) < 1 or self.chunks[0].type != 'IHDR':
-            raise InvalidPngStructureException('missing IHDR chunk at the beginning of the file')
+            raise InvalidPngStructureException(
+                    'missing IHDR chunk at the beginning of the file'
+                )
         return self.chunks[0]['height']
 
     @height.setter
     def height(self, value):
         if len(self.chunks) < 1 or self.chunks[0].type != 'IHDR':
-            raise InvalidPngStructureException('missing IHDR chunk at the beginning of the file')
+            raise InvalidPngStructureException(
+                    'missing IHDR chunk at the beginning of the file'
+                )
         self.chunks[0]['height'] = value
 
     @property
     def size(self):
         if len(self.chunks) < 1 or self.chunks[0].type != 'IHDR':
-            raise InvalidPngStructureException('missing IHDR chunk at the beginning of the file')
+            raise InvalidPngStructureException(
+                    'missing IHDR chunk at the beginning of the file'
+                )
         return self.chunks[0]['size']
 
     @size.setter
     def size(self, value):
         if len(self.chunks) < 1 or self.chunks[0].type != 'IHDR':
-            raise InvalidPngStructureException('missing IHDR chunk at the beginning of the file')
+            raise InvalidPngStructureException(
+                    'missing IHDR chunk at the beginning of the file'
+                )
         self.chunks[0]['size'] = value
     
     @property
@@ -293,15 +309,23 @@ class PngChunk:
     def __init__(self, chunkbytes, edit=True, auto_update=True):
         """Creates a PngChunk from the bytes given in the chunkbytes parameter.
         It should include the chunk's size, type and crc checksum.
-        If to much data is given, it ignores everything after the encoded length
+        If to much data is given, it ignores everything after the encoded
+        length.
 
-        If edit is set to False, doing anything that would change the bytes of the chunk throws an exception.
-        If auto_update is True, the crc of the chunk will be updated when the data is changed.
+        If edit is set to False, doing anything that would change the bytes of
+        the chunk throws an exception.
+
+        If auto_update is True, the crc of the chunk will be updated when the
+        data is changed.
 
         The structure of a png chunk should be as follow:
-            [length (4 bytes, big-endian) | type (4 bytes, ascii) | data (length bytes) | crc (4 bytes)]
+            [   length (4 bytes, big-endian) |
+                type (4 bytes, ascii)        |
+                data (length bytes)          |
+                crc (4 bytes)                ]
 
-        The crc checksum is calculated with the chunk type and data, but does not include the length header.
+        The crc checksum is calculated with the chunk type and data, but does
+        not include the length header.
         """
 
         if not type(chunkbytes) in (type(b''), bytearray):
