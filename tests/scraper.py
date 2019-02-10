@@ -129,7 +129,6 @@ def scrap(starturl, limit):
             end="\r"
         )
 
-    # We are quite unlikely to get out of this loup without killing the process xD
     while len(queue) > 0 and data_size < limit:
 
         url = queue.pop()
@@ -177,7 +176,8 @@ def scrap(starturl, limit):
             savename = '{}/new/{}.png'.format(IMG_DIR, savename)
             with open(savename, 'wb') as f:
                 f.write(resp)
-            if img_count % 5 == 0:
+            if img_count % 20 == 0:
+                print("Recalculating the amount of the data we already have...         ", end='\r')
                 data_size = get_directory_size(IMG_DIR)
             else:
                 data_size += len(resp)
