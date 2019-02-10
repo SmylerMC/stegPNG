@@ -2,10 +2,16 @@
 
 import stegpng
 from sys import argv
-from os import remove, rename, walk
+from os import remove, rename, walk, listdir
 from PIL import Image
 import io
 from time import time
+
+IMG_DIR = "test_files"
+FIN_DIR = IMG_DIR + "/fine"
+NEW_DIR = IMG_DIR + "/new"
+ERR_DIR = IMG_DIR + "/error"
+CRA_DIR = IMG_DIR + "/crashers"
 
 class UnknownChunkException(Exception):
 
@@ -16,6 +22,10 @@ class UnknownChunkException(Exception):
 def printimg(img):
     img = stegpng.open(img)
     print(img.pixels)
+
+def move2new(directory):
+    for fname in listdir(directory):
+        rename(directory + "/" + fname, NEW_DIR + "/" + fname)
 
 def test_img(imgbytes, catch=True, quick=False):
     try:
@@ -104,105 +114,32 @@ def test():
     if modified:
         print("Test did not preserve image integrity...")
 
-def clean():
-    for dirpath, dirs, files in walk('errors/'):
+def masstest(quick=False):
+
+    if not quick:
+        print("Moving files to the new directory... ", end='')
+        move2new(ERR_DIR)
+        move2new(FIN_DIR)
+        print("Done")
+
+    for dirpath, dirs, files in walk(NEW_DIR):
         for fn in files:
-            fname = dirpath + fn
+            fname = dirpath + '/' + fn
             with open(fname, 'rb') as f:
                 content = f.read()
             errors, changed, invalid, unknown_chunks = test_img(content, quick=True)
             if errors:
-                print("{} threw an exception, keeping it.".format(fname))
-            #elif changed:
-                #print("%s changed, moving it to changed directory.", fname)
-            #    print("{} changed.".format(fname))
+                print("{} threw an exception".format(fname))
+                rename(fname, ERR_DIR + '/' + fn)
             elif len(unknown_chunks):
-                #print("%s has unknown chunks, moving it to unknown directory", fname)
-                print("{} has unknown chunks.".format(fname))
+                print("{} has unknown chunks".format(fname))
+                rename(fname, ERR_DIR + '/' + fn)
             elif len(invalid):
-                #print("%s has unknown chunks, moving it to unknown directory", fname)
-                print("{} has invalid chunks.".format(fname))
+                print("{} has invalid chunks".format(fname))
+                rename(fname, ERR_DIR + '/' + fn)
             else:
-                print("{} is fine, deleting it.".format(fname))
-                remove(fname)
-
-def spider(url):
-    from requests import Session
-    from urllib.parse import urljoin, quote as url_encode
-    from sys import argv
-    from bs4 import BeautifulSoup as Soup
-    from time import sleep, time
-    import random
-    import stegpng
-    from stegpng import Png
-    import magic
-    from json import dumps
-
-    unknown_chunks = {}
-    exception_count = 0
-
-    visited = set()
-    processed_imgs = set()
-    to_process = set()
-    to_process.add(url)
-
-
-    sess = Session()
-
-    proxies = {
-        'http': 'socks5://127.0.0.1:9050',
-        'https': 'socks5://127.0.0.1:9050'
-    }
-
-    try:
-        while len(to_process) > 0:
-            try:
-
-                url = to_process.pop()
-                print("Spidered: {}\t To spider: {}\t Processed images: {}\t Exceptions: {}".format(
-                    len(visited),
-                    len(to_process),
-                    len(processed_imgs),
-                    exception_count,
-                    ), end=' ' * 20 + '\r')
-                visited.add(url)
-                res = sess.get(url, proxies=proxies)
-                soup = Soup(res.text, 'html.parser')
-                links = [l.get('href', None) for l in soup.find_all('a')]
-                links = set(map(lambda l: urljoin(url, l), links))
-                links.difference_update(visited)
-                to_process = to_process.union(links)
-
-                imgs = [l.get('src', '') for l in soup.find_all('img')]
-                imgs = set(filter(lambda l: l.endswith('.png'), map(lambda l: urljoin(url, l), imgs)))
-                for url in imgs:
-                    if url in processed_imgs:
-                        continue
-                    resp = sess.get(url, proxies=proxies).content
-                    if magic.detect_from_content(resp).mime_type == 'image/png':
-                        errors, changed, invalid, unknown_chunks = test_img(resp)
-                        if len(unknown_chunks):
-                            print('Unknown chunks: {} in {}'.format(str(unknown_chunks)[1:-1], url))
-                        if errors or changed or len(invalid) or len(unknown_chunks):
-                            exception_count += 1
-                            print("Saving {}: exception: {}, unkown chunks: {}, invalid chunks: {}".format(url, errors, len(unknown_chunks), len(invalid)))
-                            with open('errors/{}.png'.format(url.replace('/', '-').replace(':', '-')), 'wb') as f:
-                                f.write(resp)
-                    processed_imgs.add(url)
-                    print("Spidered: {}\t To spider: {}\t Processed images: {}\t Saved: {}".format(
-                        len(visited),
-                        len(to_process),
-                        len(processed_imgs),
-                        exception_count,
-                        ), end='\r')
-
-            except Exception as e:
-                print("An error occured: {}".format(e))
-    except KeyboardInterrupt:
-        print('\r'+' '*100+"\rGoodbay!")
-    else:
-        print()
-        print("Nothing to spider!")
+                print("{} is fine".format(fname))
+                rename(fname, FIN_DIR + '/' + fn)
 
 def stats():
     chunks = {}
@@ -212,7 +149,7 @@ def stats():
     changed_count = 0
     fnames = []
     print('Listing files...\r', end='')
-    for dirpath, dirs, files in walk('errors/'):
+    for dirpath, dirs, files in walk(IMG_DIR):
         for fn in files:
             fname = dirpath + fn
             fnames.append(fname)
@@ -263,13 +200,16 @@ def stats():
 
 
 if __name__ == '__main__':
+
+    usage_str = 'Usage: {} action\nPossible actions:\n\tmasstest\n\tquicktest\n\timgtest\n\tstats\n\tprint'.format(argv[0])
+
     try:
-        if argv[1] == 'test':
+        if argv[1] == 'imgtest':
             test()
-        elif argv[1] == 'clean':
-            clean()
-        elif argv[1] == 'spider':
-            spider(argv[2])
+        elif argv[1] == 'masstest':
+            masstest()
+        elif argv[1] == 'quicktest':
+            masstest(quick=True)
         elif argv[1] == 'stats':
             stats()
         elif argv[1] == 'print':
@@ -277,6 +217,5 @@ if __name__ == '__main__':
         else:
             raise IndexError()
     except IndexError as e:
-        print("Invalid args...")
-        raise e
+        print(usage_str)
 
