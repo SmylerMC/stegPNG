@@ -28,13 +28,13 @@ def move2new(directory):
         rename(directory + "/" + fname, NEW_DIR + "/" + fname)
 
 def test_img(imgbytes, catch=True, quick=False):
+    unsupported_chunks = set()
+    invalid_chunks = []
+    error = False
+    modified = False
     try:
         img = stegpng.Png(imgbytes)
         pilimg = Image.open(io.BytesIO(imgbytes))
-        unsupported_chunks = set()
-        invalid_chunks = []
-        error = False
-        modified = False
         
         pilwidth, pilheight = pilimg.size
         width, height = img.size
@@ -125,6 +125,7 @@ def masstest(quick=False):
     for dirpath, dirs, files in walk(NEW_DIR):
         for fn in files:
             fname = dirpath + '/' + fn
+            print(fname)
             with open(fname, 'rb') as f:
                 content = f.read()
             errors, changed, invalid, unknown_chunks = test_img(content, quick=True)
