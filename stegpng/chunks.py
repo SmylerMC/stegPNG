@@ -925,10 +925,10 @@ class ChunktRNS(ChunkImplementation):
                                 minlength=1,)
 
     def _is_payload_valid(self, chunk):
-        return True
+        return True #TODO
 
     def get_all(self, chunk, ihdr=None, ihdrdata=None):
-        out = self.get(chunk, 'palette', ihdr=ihdr, ihdrdata=ihdrdata)
+        return self.get(chunk, 'palette', ihdr=ihdr, ihdrdata=ihdrdata)
 
     def get(self, chunk, field, ihdr=None, ihdrdata=None):
         if field != "palette":
@@ -1001,6 +1001,52 @@ class ChunktRNS(ChunkImplementation):
         else:
             raise KeyError()
 
+
+class ChunkiCCP(ChunkImplementation):
+
+    def __init__(self):
+        super(ChunkiCCP, self).__init__('iCCP',
+                                empty_data=b'0\x00\x00', #TODO Default profile
+                                minlength=3,)
+        self.__key_profile_name = 'profile_name' #TODO Do that everywhere, why did I hardcode these everywhere?
+        self.__key_compression = 'compression'
+        self.__key_profile = 'profile'
+
+    def _is_payload_valid(self, chunk):
+        return True #TODO
+
+    def get_all(self, chunk, ihdr=None, ihdrdata=None):
+        return {
+                self.__key_profile_name: self.get(chunk, self.__key_profile_name, ihdr=ihdr, ihdrdata=ihdrdata),
+                self.__key_compression: self.get(chunk, self.__key_compression, ihdr=ihdr, ihdrdata=ihdrdata),
+                self.__key_profile: self.get(chunk, self.__key_profile, ihdr=ihdr, ihdrdata=ihdrdata),
+        }
+
+    def get(self, chunk, field, ihdr=None, ihdrdata=None):
+
+        # We are doing this here to raise the Exception before checking the chunks structure
+        if not field in (self.__key_profile_name, self.__key_compression, self.__key_profile):
+            raise KeyError()
+
+        sep = chunk.data.find(0)
+        if sep == -1 or sep > 79:
+            raise ChunkStructureException('Invalid Profile name length')
+
+        if field == self.__key_profile_name:
+            return chunk.data[:sep].decode('latin-1')
+
+        compression_method = chunk.data[sep + 1]
+        if field == self.__key_compression:
+            return compression_method
+
+        elif field == self.__key_profile:
+            if compression_method != 0:
+                raise InvalidChunkStructureException('Unsupported compression method: {}, only 0 supported'.format(compression_method))
+            return decompress(chunk.data[sep + 2:])
+
+
+    def set(self, chunk, field, value, ihdr=None, ihdrdata=None):
+        raise Exception("Not implemented") #TODO
 
 
 implementations = {
