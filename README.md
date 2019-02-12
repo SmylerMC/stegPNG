@@ -57,10 +57,10 @@ pip3 install -e .
 - [x] PLTE
 - [x] IDAT (Interlaced images, bit depth other than 8 and indexation are not supported yet)
 - [x] IEND
-- [ ] tRNS
+- [x] tRNS
 - [x] cHRM
 - [x] gAMA
-- [ ] iCCP
+- [x] iCCP (Read-only)
 - [x] sBIT
 - [x] sRGB
 - [x] tEXt
@@ -68,6 +68,6 @@ pip3 install -e .
 - [x] zTXt
 - [x] bKGD
 - [x] pHYs
-- [x] sPLT (No writting support)
+- [x] sPLT (Read-only)
 - [x] tIME
 - [ ] Any other proprietary chunk
