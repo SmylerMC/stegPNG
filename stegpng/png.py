@@ -5,6 +5,7 @@ from . import pngexceptions #TODO remove
 from .pngexceptions import *
 from .utils import compress, decompress, paeth
 from math import ceil, floor
+import requests
 
 _PNG_SIGNATURE = b'\x89PNG\r\n\x1a\n'
 
@@ -740,7 +741,6 @@ def open(filename, ignore_signature=False):
     """Returns a Png object from the given file name."""
     data = None
     if filename.startswith('http://') or filename.startswith('https://'):
-        from requests import Session
         data = requests.get(filename).content
     else:
         with __builtins__['open'](filename, 'rb') as f:
