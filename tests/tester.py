@@ -152,7 +152,7 @@ def stats():
     print('Listing files...\r', end='')
     for dirpath, dirs, files in walk(IMG_DIR):
         for fn in files:
-            fname = dirpath + fn
+            fname = dirpath + '/' + fn
             fnames.append(fname)
     print('Found {} files'.format(len(fnames)))
     start_time = time()
