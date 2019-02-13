@@ -1014,7 +1014,7 @@ class ChunkiCCP(ChunkImplementation):
 
     def _is_payload_valid(self, chunk):
         sep = chunk.data.find(0)
-        return sep == -1 or sep > 79 or sep >= len(chunk.data) - 1:
+        return sep == -1 or sep > 79 or sep >= len(chunk.data) - 1
 
     def get_all(self, chunk, ihdr=None, ihdrdata=None):
         return {
