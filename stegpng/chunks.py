@@ -1008,9 +1008,16 @@ class ChunkiCCP(ChunkImplementation):
         super(ChunkiCCP, self).__init__('iCCP',
                                 empty_data=b'0\x00\x00', #TODO Default profile
                                 minlength=3,)
-        self.__key_profile_name = 'profile_name' #TODO Do that everywhere, why did I hardcode these everywhere?
+        #TODO Do that everywhere, why did I hardcode these everywhere?
+        self.__key_profile_name = 'profile_name'
         self.__key_compression = 'compression'
         self.__key_profile = 'profile'
+
+        self.__keys = (
+                        self.__key_profile_name,
+                        self.__key_compression,
+                        self.__key_profile,
+                    )
 
     def _is_payload_valid(self, chunk):
         sep = chunk.data.find(0)
@@ -1018,19 +1025,35 @@ class ChunkiCCP(ChunkImplementation):
 
     def get_all(self, chunk, ihdr=None, ihdrdata=None):
         return {
-                self.__key_profile_name: self.get(chunk, self.__key_profile_name, ihdr=ihdr, ihdrdata=ihdrdata),
-                self.__key_compression: self.get(chunk, self.__key_compression, ihdr=ihdr, ihdrdata=ihdrdata),
-                self.__key_profile: self.get(chunk, self.__key_profile, ihdr=ihdr, ihdrdata=ihdrdata),
+                self.__key_profile_name: self.get(
+                        chunk,
+                        self.__key_profile_name,
+                        ihdr=ihdr,
+                        ihdrdata=ihdrdata
+                    ),
+                self.__key_compression: self.get(
+                        chunk,
+                        self.__key_compression,
+                        ihdr=ihdr,
+                        ihdrdata=ihdrdata
+                    ),
+                self.__key_profile: self.get(
+                    chunk,
+                    self.__key_profile,
+                    ihdr=ihdr,
+                    ihdrdata=ihdrdata
+                ),
         }
 
     def get(self, chunk, field, ihdr=None, ihdrdata=None):
 
-        # We are doing this here to raise the Exception before checking the chunks structure
-        if not field in (self.__key_profile_name, self.__key_compression, self.__key_profile):
+        # We are doing this here to raise the Exception before checking
+        # the chunks structure
+        if not field in self.__keys:
             raise KeyError()
 
         if not self._is_payload_valid(chunk):
-            raise ChunkStructureException()
+            raise InvalidChunkStructureException("chunk is not valid")
 
         sep = chunk.data.find(0)
         compression_method = chunk.data[sep + 1]
@@ -1049,8 +1072,9 @@ class ChunkiCCP(ChunkImplementation):
 
     def set(self, chunk, field, value, ihdr=None, ihdrdata=None):
 
-        # We are doing this here to raise the Exception before checking the chunks structure
-        if not field in (self.__key_profile_name, self.__key_compression, self.__key_profile):
+        # We are doing this here to raise the Exception before checking
+        # the chunks structure
+        if not field in self.__keys:
             raise KeyError()
 
         if not self.is_payload_valid(chunk):
