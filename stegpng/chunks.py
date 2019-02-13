@@ -1013,7 +1013,8 @@ class ChunkiCCP(ChunkImplementation):
         self.__key_profile = 'profile'
 
     def _is_payload_valid(self, chunk):
-        return True #TODO
+        sep = chunk.data.find(0)
+        return sep == -1 or sep > 79 or sep >= len(chunk.data) - 1:
 
     def get_all(self, chunk, ihdr=None, ihdrdata=None):
         return {
@@ -1028,14 +1029,15 @@ class ChunkiCCP(ChunkImplementation):
         if not field in (self.__key_profile_name, self.__key_compression, self.__key_profile):
             raise KeyError()
 
+        if not self._is_payload_valid(chunk):
+            raise ChunkStructureException()
+
         sep = chunk.data.find(0)
-        if sep == -1 or sep > 79:
-            raise ChunkStructureException('Invalid Profile name length')
+        compression_method = chunk.data[sep + 1]
 
         if field == self.__key_profile_name:
             return chunk.data[:sep].decode('latin-1')
 
-        compression_method = chunk.data[sep + 1]
         if field == self.__key_compression:
             return compression_method
 
@@ -1046,7 +1048,38 @@ class ChunkiCCP(ChunkImplementation):
 
 
     def set(self, chunk, field, value, ihdr=None, ihdrdata=None):
-        raise Exception("Not implemented") #TODO
+
+        # We are doing this here to raise the Exception before checking the chunks structure
+        if not field in (self.__key_profile_name, self.__key_compression, self.__key_profile):
+            raise KeyError()
+
+        if not self.is_payload_valid(chunk):
+            raise ChunkStructureException()
+
+        sep = chunk.data.find(0)
+        compression_method = chunk.data[sep + 1]
+
+        if field == self.__key_profile_name:
+            if type(value) != string:
+                raise TypeError("ICC Profile name should be a string, not {}".format(type(value)))
+            if len(value) > 79:
+                raise ValueError("ICC Profile name should at most 79 characters")
+            chunk.data = value.encode('latin-1') + chunk.data[:sep]
+
+        # Only compression method 0 (deflate) is supported by PNG,
+        # so setting it to anything else will break the chunk
+        elif field == self.__key_compression:
+            if type(value) != int:
+                raise TypeError("ICC compression method should be an integer")
+            chunk.data = chunk.data[:sep+1] + b'\x00' + chunk.data[sep+2:]
+
+        # We are not actualy encoding the ICC Profile, just packing it in the PNG iCCP chunk
+        elif field == self.__key_profile:
+            if type(value) != bytes:
+                raise TypeError("ICC Profile type should be bytes")
+            if compression_method != 0:
+                raise InvalidChunkStructureException('Unsupported compression method: {}, only 0 supported'.format(compression_method))
+            chunk.data = chunk.data[:sep+2] + compress(value)
 
 
 implementations = {
@@ -1066,6 +1099,7 @@ implementations = {
     'sBIT': ChunksBIT(),
     'sPLT': ChunksPLT(),
     'tRNS': ChunktRNS(),
+    'iCCP': ChunkiCCP(),
     #https://www.hackthis.co.uk/forum/programming-technology/27373-png-idot-chunk
 }
 
