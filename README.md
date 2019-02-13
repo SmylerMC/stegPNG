@@ -60,7 +60,7 @@ pip3 install -e .
 - [x] tRNS
 - [x] cHRM
 - [x] gAMA
-- [x] iCCP (Read-only)
+- [x] iCCP
 - [x] sBIT
 - [x] sRGB
 - [x] tEXt
