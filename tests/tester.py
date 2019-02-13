@@ -114,33 +114,35 @@ def test():
     if modified:
         print("Test did not preserve image integrity...")
 
-def masstest(quick=False):
+def masstest(directory, movedir=(ERR_DIR, FIN_DIR)):
 
-    if not quick:
-        print("Moving files to the new directory... ", end='')
-        move2new(ERR_DIR)
-        move2new(FIN_DIR)
+    for fromdir in movedir:
+        print("Moving files from {} to {}... ".format(fromdir, directory), end='')
+        move2new(directory)
         print("Done")
 
-    for dirpath, dirs, files in walk(NEW_DIR):
-        for fn in files:
-            fname = dirpath + '/' + fn
-            print(fname)
-            with open(fname, 'rb') as f:
-                content = f.read()
-            errors, changed, invalid, unknown_chunks = test_img(content, quick=True)
-            if errors:
-                print("{} threw an exception".format(fname))
-                rename(fname, ERR_DIR + '/' + fn)
-            elif len(unknown_chunks):
-                print("{} has unknown chunks".format(fname))
-                rename(fname, ERR_DIR + '/' + fn)
-            elif len(invalid):
-                print("{} has invalid chunks".format(fname))
-                rename(fname, ERR_DIR + '/' + fn)
-            else:
-                print("{} is fine".format(fname))
-                rename(fname, FIN_DIR + '/' + fn)
+    fnames = set()
+    for dirpath, dirs, files in walk(directory):
+        fnames.update(files)
+
+    for fn in fnames:
+        fname = dirpath + '/' + fn
+        print(fname)
+        with open(fname, 'rb') as f:
+            content = f.read()
+        errors, changed, invalid, unknown_chunks = test_img(content, quick=True)
+        if errors:
+            print("{} threw an exception".format(fname))
+            rename(fname, ERR_DIR + '/' + fn)
+        elif len(unknown_chunks):
+            print("{} has unknown chunks".format(fname))
+            rename(fname, ERR_DIR + '/' + fn)
+        elif len(invalid):
+            print("{} has invalid chunks".format(fname))
+            rename(fname, ERR_DIR + '/' + fn)
+        else:
+            print("{} is fine".format(fname))
+            rename(fname, FIN_DIR + '/' + fn)
 
 def stats():
     chunks = {}
@@ -202,15 +204,23 @@ def stats():
 
 if __name__ == '__main__':
 
-    usage_str = 'Usage: {} action\nPossible actions:\n\tmasstest\n\tquicktest\n\timgtest\n\tstats\n\tprint'.format(argv[0])
-
+    usage_str = 'Usage: {} action\n'.format(argv[0])
+    usage_str += 'Possible actions:\n'
+    usage_str += '\tmasstest\n'
+    usage_str += '\terrtest\n'
+    usage_str += '\tquicktest\n'
+    usage_str += '\timgtest\n'
+    usage_str += '\tstats\n'
+    usage_str += '\tprint'
     try:
         if argv[1] == 'imgtest':
             test()
         elif argv[1] == 'masstest':
-            masstest()
+            masstest(NEW_DIR)
+        elif argv[1] == 'errtest':
+            masstest(ERR_DIR, movedir=())
         elif argv[1] == 'quicktest':
-            masstest(quick=True)
+            masstest(NEW_DIR, movedir=())
         elif argv[1] == 'stats':
             stats()
         elif argv[1] == 'print':
