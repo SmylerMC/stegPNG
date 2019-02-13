@@ -1021,7 +1021,7 @@ class ChunkiCCP(ChunkImplementation):
 
     def _is_payload_valid(self, chunk):
         sep = chunk.data.find(0)
-        return sep == -1 or sep > 79 or sep >= len(chunk.data) - 1
+        return sep > 0 and sep <= 79 and sep < len(chunk.data) - 1
 
     def get_all(self, chunk, ihdr=None, ihdrdata=None):
         return {
@@ -1077,18 +1077,18 @@ class ChunkiCCP(ChunkImplementation):
         if not field in self.__keys:
             raise KeyError()
 
-        if not self.is_payload_valid(chunk):
-            raise ChunkStructureException()
+        if not self._is_payload_valid(chunk):
+            raise InvalidChunkStructureException("chunk is not valid")
 
         sep = chunk.data.find(0)
         compression_method = chunk.data[sep + 1]
 
         if field == self.__key_profile_name:
-            if type(value) != string:
+            if type(value) != str:
                 raise TypeError("ICC Profile name should be a string, not {}".format(type(value)))
             if len(value) > 79:
                 raise ValueError("ICC Profile name should at most 79 characters")
-            chunk.data = value.encode('latin-1') + chunk.data[:sep]
+            chunk.data = value.encode('latin-1') + chunk.data[sep:]
 
         # Only compression method 0 (deflate) is supported by PNG,
         # so setting it to anything else will break the chunk
