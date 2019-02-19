@@ -167,9 +167,7 @@ class ChunkIDAT(ChunkImplementation):
     """IDAT chunks contain the compressed image datastream, eventualy splited
     over multiple IDAT chunks.
     This chunk is critical, a valid image MUST contain at least one IDAT chunk,
-    which has to be placed after the IHDR chunk and before the IEND chunk.
-
-    Not ready at all""" #TODO
+    which has to be placed after the IHDR chunk and before the IEND chunk."""
 
     def __init__(self):
         super(ChunkIDAT, self).__init__('IDAT', minlength=1)
@@ -228,7 +226,10 @@ class ChunktEXt(ChunkImplementation):
     def _is_payload_valid(self, chunk, ihdr=None, ihdrdata=None):
         return chunk.data.count(0x00) == 1 and chunk.data.find(0x00) <= 78
 
+
 class ChunksRGB(ChunkImplementation):
+
+    #TODO Docstring
 
     def __init__(self):
         super(ChunksRGB, self).__init__('sRGB',
@@ -269,6 +270,8 @@ class ChunksRGB(ChunkImplementation):
         return self.get(chunk, 'rendering_code') in range(4)
 
 class ChunktIME(ChunkImplementation):
+
+    #TODO Docstring
 
     def __init__(self):
         super(ChunktIME, self).__init__(
@@ -345,6 +348,8 @@ class ChunktIME(ChunkImplementation):
 
 class ChunkgAMA(ChunkImplementation):
 
+    #TODO Docstring
+
     def __init__(self):
         super(ChunkgAMA, self).__init__('gAMA',
             empty_data=b'\x00\x00\x00\x00',
@@ -373,6 +378,8 @@ class ChunkgAMA(ChunkImplementation):
 
 
 class ChunkzTXt(ChunkImplementation):
+
+    #TODO Docstring
 
     def __init__(self):
         super(ChunkzTXt, self).__init__('zTXt',
@@ -429,11 +436,13 @@ class ChunkzTXt(ChunkImplementation):
 
 class ChunkcHRM(ChunkImplementation):
 
+    #TODO Docstring
+
     def __init__(self):
         super(ChunkcHRM, self).__init__(
             'cHRM',
             length=32,
-            empty_data=b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+            empty_data=b'\x00' * 32,
         )
 
     def get_all(self, chunk, ihdr=None, ihdrdata=None):
@@ -501,18 +510,20 @@ class ChunkcHRM(ChunkImplementation):
 
 class ChunkpHYs(ChunkImplementation):
 
+    #TODO Docstring
+
     def __init__(self):
         super(ChunkpHYs, self).__init__(
             'pHYs',
             length=9,
-            empty_data=b'\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+            empty_data=b'\x00',
         )
 
     def get_all(self, chunk, ihdr=None, ihdrdata=None):
         return {
             'ppu_x': self.get(chunk, 'ppu_x'),
             'ppu_y': self.get(chunk, 'ppu_y'),
-            'unit_code': self.get(chunk, 'unit_code'),
+            'unit_code': self.get(chunk, 'unit_code'), * 9
             'unit_name': self.get(chunk, 'unit_name'),
             'dpi': self.get(chunk, 'dpi'),
         }
@@ -554,6 +565,8 @@ class ChunkpHYs(ChunkImplementation):
         return self.get(chunk, 'unit_code') in range(2)
 
 class ChunkiTXt(ChunkImplementation):
+
+    #TODO Docstring
 
     def __init__(self):
         super(ChunkiTXt, self).__init__('iTXt',
@@ -649,7 +662,7 @@ class ChunkiTXt(ChunkImplementation):
 
 class ChunkbKGD(ChunkImplementation):
 
-    #TODO A bit more fuzzing and tests one this
+    #TODO Docstring
 
     def __init__(self):
         super(ChunkbKGD, self).__init__('bKGD',
@@ -718,6 +731,8 @@ class ChunkbKGD(ChunkImplementation):
         return len(chunk) in (1, 2, 6)
 
 class ChunksBIT(ChunkImplementation):
+
+    #TODO Docstring
 
     def __init__(self):
         super(ChunksBIT, self).__init__('sBIT',
@@ -793,9 +808,11 @@ class ChunksBIT(ChunkImplementation):
 
 class ChunkPLTE(ChunkImplementation):
 
+    #TODO Docstring
+
     def __init__(self):
         super(ChunkPLTE, self).__init__('PLTE',
-                                        empty_data=b'\x00\x00\x00',
+                                        empty_data=b'\x00' * 3,
                                         minlength=3,
                                         maxlength=768,)
 
@@ -826,9 +843,12 @@ class ChunkPLTE(ChunkImplementation):
         return tuple([self.get(chunk, i) for i in range(len(chunk) // 3)])
 
     def _is_payload_valid(self, chunk, ihdr=None, ihdrdata=None):
+        raise Exception('Not implemented')
         return True #TODO
 
 class ChunksPLT(ChunkImplementation):
+
+    #TODO Docstring
 
     def __init__(self):
         #TODO I have a doubt about wether or not the length is correct here, check it.
@@ -880,7 +900,6 @@ class ChunksPLT(ChunkImplementation):
 
 
     def set(self, chunk, field, value, ihdr=None, ihdrdata=None):
-        #TODO Testing
         sep = chunk.data.find(0x00)
         if field == 'palette_name':
             if type(value) == str:
@@ -919,12 +938,15 @@ class ChunksPLT(ChunkImplementation):
 
 class ChunktRNS(ChunkImplementation):
 
+    #TODO Docstring
+
     def __init__(self):
         super(ChunktRNS, self).__init__('tRNS',
                                 empty_data=b'\x00',
                                 minlength=1,)
 
     def _is_payload_valid(self, chunk):
+        raise Exception('Not Implemented')
         return True #TODO
 
     def get_all(self, chunk, ihdr=None, ihdrdata=None):
@@ -964,7 +986,6 @@ class ChunktRNS(ChunkImplementation):
 
 
     def set(self, chunk, field, value, ihdr=None, ihdrdata=None):
-        #TODO Testing
         sep = chunk.data.find(0x00)
         if field == 'palette_name':
             if type(value) == str:
@@ -1003,6 +1024,8 @@ class ChunktRNS(ChunkImplementation):
 
 
 class ChunkiCCP(ChunkImplementation):
+
+    #TODO Docstring
 
     def __init__(self):
         super(ChunkiCCP, self).__init__('iCCP',
