@@ -2,21 +2,51 @@ from struct import pack, unpack
 from .pngexceptions import InvalidChunkStructureException, UnsupportedCompressionMethodException
 from .utils import compress, decompress
 
+#TODO Module docstring
+
 class ChunkImplementation:
 
-    #TODO Docstring
+    """
+    A superclass for various chunk implementaions.
+    All chunk implementations should extends from this class and
+    override the following methods:
+        get
+        get_all
+        set
+        is_payload_valid
+
+    The following method may also be overriten in special cases:
+        _is_length_valid
+    """
+        
 
     def __init__(self, chtype, empty_data=b'', length=None, maxlength=1<<31-1, minlength=0):
-        """Arguments:
-            chtype: The chunk type (IHDR, IDAT, IEND etc...
-            empty_data: the data an empty chunk of this type should have, to makeit valid
-            length: The fixed length of the chunk. Overrides minlength and maxlength if set.
-            minlength: The minimum length of the chunk.
-            maxlength: The minimum length of the chunk."""
+
+        """
+        :param chtype str: The chunk type (IHDR, IDAT, IEND etc...)
+        :param empty_data bytes: The minimum bytes for a chunk of this type
+        :param length int: The fixed length of the chunk
+        :param length list: A list of valid lengths for the chunk
+            Overrides minlength and maxlength if set
+        :param minlength int: The minimum length of the chunk.
+        :param maxlength int: The maximum length of the chunk.
+
+        :raises TypeError on invalid argument type
+        :raises ValueError on invalid argument value
+        """
+
+        if type(chtype) != str:
+            raise TypeError("Invalid type for a chunk type. It should be str")
+        if len(chtype) != 4:
+            raise ValueError("Chunk types must be strings of length 4")
         self.type = chtype
+        
+        if type(empty_data) != bytes:
+            raise TypeError("Invalid type for empty data. It should be bytes")
         self.empty_data = empty_data
-        if length != None:
-            if isinstance(length, tuple):
+
+        if length:
+            if type(length) ==  tuple:
                 for i in length:
                     if not type(i) is int:
                         raise TypeError("Possible lenghts should be integers.")
@@ -26,41 +56,126 @@ class ChunkImplementation:
                 self.minlength = length
 
             else:
-                raise TypeError("lenght should be an integer or a tuple of integers")
+                raise TypeError(
+                    "lenght should be an integer or a tuple of integers"
+                )
         else:
+            if not (type(maxlength) == type(minlength) == int):
+                raise TypeError("minlength and maxlength should be integers")
+            if not (maxlength >= minlength >= 0):
+                raise ValueError("Invalid values for maxlength and minlength")
             self.maxlength = maxlength
             self.minlength = minlength
 
+
     def _is_length_valid(self, chunk):
-        """Returns True if the chunk's length is valid for that chunk.
-        This not to be overriden in most case, the length, maxlength and minlength arguments
-        of __init__ should be used."""
+        
+        """
+        Returns True if the chunk's length is valid for that chunk.
+        This method is not to be overriden in most case
+        the length, maxlength and minlength arguments of __init__
+        should be used instead
+        
+        :param chunk PngChunk: The chunk to read
+        
+        :return: True if the length is valid, False otherwise
+        """
         try:
-            return chunk.type == self.type and len(chunk) <= self.maxlength and len(chunk) >= self.minlength
+            return self.minlength <= len(chunk) <= self.maxlength
         except AttributeError:
             return len(chunk) in self.lengths
 
+
     def is_valid(self, chunk, ihdr=None, ihdrdata=None):
-        """Returns True if the chunk is valid.
-        It ignores the crc signature, use PngChunk#check_crc() for that.
-        This method should normaly not be overriden as it checks the chunk's header
-        and calls _is_payload_valid() to check the payload. This is what is to be overiden."""
+        
+        """
+        Returns True if the chunk is valid.
+        Ignores the crc signature, use PngChunk#check_crc() for that.
+        This method should normaly not be overriden
+        _is_payload_valid() is what is to be overiden in most cases
+
+        :param chunk PngChunk: The chunk to test
+
+        :return: True if the length of the chunk is valid, False otherwise
+        """
+
         return self._is_length_valid(chunk) and self._is_payload_valid(chunk)
 
+
     def _is_payload_valid(self, chunk, ihdr=None, ihdrdata=None):
-        """This is to be overriden for most chunks."""
+        
+        """
+        This is to be overriden for most chunks
+
+        The ihdr and ihdrdata arguments may be used when addition
+        information fom the ihdr chunk is required to read the chunk.
+        If ihdr is supplied, ihdrdata should be ignored
+
+        :param chunk PngChunk: The chunk to test
+        :param ihdr PngChunk: The IHDR chunk of the image, if available
+        :param ihdrdata dict: A dictionnary representing the IHDR Chunk
+
+        :return: True if the payload of the chunk is valid, False otherwise
+        """
+
         return chunk.data == b''
 
+
     def get_all(self, chunk, ihdr=None, ihdrdata=None):
-        """This is to be overriden for most chunks."""
+        
+        """
+        This is to be overriden for most chunks
+
+        The ihdr and ihdrdata arguments may be used when addition
+        information fom the ihdr chunk is required to read the chunk.
+        If ihdr is supplied, ihdrdata should be ignored
+
+        :param chunk PngChunk: The chunk to read
+        :param ihdr PngChunk: The IHDR chunk of the image, if available
+        :param ihdrdata dict: A dictionnary representing the IHDR Chunk
+
+        :return: a dictionnary representing the chunk's payload
+        """
+
         return {}
 
-    def get(self, chunk, field, ihdr=None, ihdrdata=None):
-        """This is to be overriden for most chunks."""
+
+    def get(self, chunk, key, ihdr=None, ihdrdata=None):
+
+        """
+        This is to be overriden for most chunks
+
+        The ihdr and ihdrdata arguments may be used when addition
+        information fom the ihdr chunk is required to read the chunk.
+        If ihdr is supplied, ihdrdata should be ignored
+
+        :param chunk PngChunk: The chunk to read
+        :param key str: The key to read
+        :param ihdr PngChunk: The IHDR chunk of the image, if available
+        :param ihdrdata dict: A dictionnary representing the IHDR Chunk
+        
+        :return: A value stored in the chunk's payload
+        """
+
         raise KeyError()
 
+
     def set(self, chunk, field, value, ihdr=None, ihdrdata=None):
-        """This is to be overriden for most chunks."""
+
+        """
+        This is to be overriden for most chunks
+
+        The ihdr and ihdrdata arguments may be used when addition
+        information fom the ihdr chunk is required to read the chunk.
+        If ihdr is supplied, ihdrdata should be ignored
+
+        :param chunk PngChunk: The chunk to write
+        :param key str: The key to write
+        :param value: The value to write
+        :param ihdr PngChunk: The IHDR chunk of the image, if available
+        :param ihdrdata dict: A dictionnary representing the IHDR Chunk
+        """
+
         raise KeyError()
 
 class ChunkIHDR(ChunkImplementation):
