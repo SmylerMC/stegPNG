@@ -4,6 +4,8 @@ from .utils import compress, decompress
 
 class ChunkImplementation:
 
+    #TODO Docstring
+
     def __init__(self, chtype, empty_data=b'', length=None, maxlength=1<<31-1, minlength=0):
         """Arguments:
             chtype: The chunk type (IHDR, IDAT, IEND etc...
@@ -62,6 +64,9 @@ class ChunkImplementation:
         raise KeyError()
 
 class ChunkIHDR(ChunkImplementation):
+    
+    #TODO Do not hardcode keys
+    #TODO Docstring
 
     """The IHDR chunk is the file header. It MUST be present at the begining of the file,
     following directly after the PNG file signature. Some implementations may ignore any
@@ -164,6 +169,9 @@ class ChunkIHDR(ChunkImplementation):
 
 class ChunkIDAT(ChunkImplementation):
 
+    #TODO Do not hardcode keys
+    #TODO Docstring
+
     """IDAT chunks contain the compressed image datastream, eventualy splited
     over multiple IDAT chunks.
     This chunk is critical, a valid image MUST contain at least one IDAT chunk,
@@ -180,6 +188,9 @@ class ChunkIDAT(ChunkImplementation):
             return chunk.data
 
 class ChunktEXt(ChunkImplementation):
+
+    #TODO Docstring
+    #TODO Do not hardcode keys
 
     """tEXt chunks contain text information. They are made a a keyword (max 78 bytes),
     and the text itself, separated by a null byte. The texts must ba valid latin-1.
@@ -230,48 +241,60 @@ class ChunktEXt(ChunkImplementation):
 class ChunksRGB(ChunkImplementation):
 
     #TODO Docstring
+    #TODO Do not hardcode keys
 
     def __init__(self):
         super(ChunksRGB, self).__init__('sRGB',
             empty_data=b'\x00',
             length=1,
         )
-        self.rederingtypes = (
+        self.renderingtypes = (
             "Perceptual",
             "Relative colorimetric",
             "Saturation",
             "Absolute colorimetric"
         )
+        self.__key_rendering_code = "rendering_code"
+        self.__key_rendering_name = "rendering_name"
 
     def get_all(self, chunk, ihdr=None, ihdrdata=None):
         return {
-                'rendering_code': self.get(chunk, 'rendering_code'),
-                'rendering_name': self.get(chunk, 'rendering_name'),
+                self.__key_rendering_code: self.get(
+                                                chunk,
+                                                self.__key_rendering_code
+                                            ),
+                self.__key_rendering_name: self.get(
+                                                chunk,
+                                                self.__key_rendering_name
+                                            ),
             }
 
     def get(self, chunk, field, ihdr=None, ihdrdata=None):
-        if field == 'rendering_code':
+        if field == self.__key_rendering_code:
             return chunk.data[0]
-        elif field == 'rendering_name':
+        elif field == self.__key_rendering_name:
             try:
-                return self.rederingtypes[self.get(chunk, 'rendering_code')]
+                return self.renderingtypes[
+                            self.get(chunk, self.__key_rendering_code)
+                        ]
             except KeyError:
                 raise InvalidChunkStructureException('invalid sRGB value')
         else:
             raise KeyError()
 
     def set(self, chunk, field, value, ihdr=None, ihdrdata=None):
-        if field == 'rendering_code':
+        if field == self.__key_rendering_code:
             chunk.data = pack('B', value)
         else:
             raise KeyError()
 
     def _is_payload_valid(self, chunk, ihdr=None, ihdrdata=None):
-        return self.get(chunk, 'rendering_code') in range(4)
+        return self.get(chunk, self.__key_rendering_code) in range(4)
 
 class ChunktIME(ChunkImplementation):
 
     #TODO Docstring
+    #TODO Do not hardcode keys
 
     def __init__(self):
         super(ChunktIME, self).__init__(
@@ -349,6 +372,7 @@ class ChunktIME(ChunkImplementation):
 class ChunkgAMA(ChunkImplementation):
 
     #TODO Docstring
+    #TODO Do not hardcode keys
 
     def __init__(self):
         super(ChunkgAMA, self).__init__('gAMA',
@@ -380,6 +404,7 @@ class ChunkgAMA(ChunkImplementation):
 class ChunkzTXt(ChunkImplementation):
 
     #TODO Docstring
+    #TODO Do not hardcode keys
 
     def __init__(self):
         super(ChunkzTXt, self).__init__('zTXt',
@@ -437,6 +462,7 @@ class ChunkzTXt(ChunkImplementation):
 class ChunkcHRM(ChunkImplementation):
 
     #TODO Docstring
+    #TODO Do not hardcode keys
 
     def __init__(self):
         super(ChunkcHRM, self).__init__(
@@ -511,6 +537,7 @@ class ChunkcHRM(ChunkImplementation):
 class ChunkpHYs(ChunkImplementation):
 
     #TODO Docstring
+    #TODO Do not hardcode keys
 
     def __init__(self):
         super(ChunkpHYs, self).__init__(
@@ -523,7 +550,7 @@ class ChunkpHYs(ChunkImplementation):
         return {
             'ppu_x': self.get(chunk, 'ppu_x'),
             'ppu_y': self.get(chunk, 'ppu_y'),
-            'unit_code': self.get(chunk, 'unit_code'), * 9
+            'unit_code': self.get(chunk, 'unit_code'),
             'unit_name': self.get(chunk, 'unit_name'),
             'dpi': self.get(chunk, 'dpi'),
         }
@@ -567,6 +594,7 @@ class ChunkpHYs(ChunkImplementation):
 class ChunkiTXt(ChunkImplementation):
 
     #TODO Docstring
+    #TODO Do not hardcode keys
 
     def __init__(self):
         super(ChunkiTXt, self).__init__('iTXt',
@@ -663,6 +691,7 @@ class ChunkiTXt(ChunkImplementation):
 class ChunkbKGD(ChunkImplementation):
 
     #TODO Docstring
+    #TODO Do not hardcode keys
 
     def __init__(self):
         super(ChunkbKGD, self).__init__('bKGD',
@@ -733,6 +762,7 @@ class ChunkbKGD(ChunkImplementation):
 class ChunksBIT(ChunkImplementation):
 
     #TODO Docstring
+    #TODO Do not hardcode keys
 
     def __init__(self):
         super(ChunksBIT, self).__init__('sBIT',
@@ -809,6 +839,7 @@ class ChunksBIT(ChunkImplementation):
 class ChunkPLTE(ChunkImplementation):
 
     #TODO Docstring
+    #TODO Do not hardcode keys
 
     def __init__(self):
         super(ChunkPLTE, self).__init__('PLTE',
@@ -849,6 +880,7 @@ class ChunkPLTE(ChunkImplementation):
 class ChunksPLT(ChunkImplementation):
 
     #TODO Docstring
+    #TODO Do not hardcode keys
 
     def __init__(self):
         #TODO I have a doubt about wether or not the length is correct here, check it.
@@ -938,16 +970,32 @@ class ChunksPLT(ChunkImplementation):
 
 class ChunktRNS(ChunkImplementation):
 
-    #TODO Docstring
+    """tRNS Chunk encode information about the transparency of the image.
+    - For indexed color images, one single byte transparency value is given
+    for each palette entry
+    - For greyscale and truecolor images, a single two bytes value is given
+    for the entire image."""
+
+    #TODO Do not hardcode keys
 
     def __init__(self):
         super(ChunktRNS, self).__init__('tRNS',
-                                empty_data=b'\x00',
-                                minlength=1,)
+                                empty_data=b'\x00\x00',
+                                minlength=2,)
 
-    def _is_payload_valid(self, chunk):
-        raise Exception('Not Implemented')
-        return True #TODO
+    def _is_payload_valid(self, chunk, ihdr=None, ihdrdata=None):
+        if ihdr:
+            ihdrdata = ihr.get_payload()
+        if type(ihdrdata) != dict:
+            raise TypeError()
+        colortype = ihdrdata.get('colortype_code')
+        if not colortype:
+            raise ValueError("Missing key: colortype_code")
+        
+        #TODO
+        raise Exception("Not implemented")
+
+        return True
 
     def get_all(self, chunk, ihdr=None, ihdrdata=None):
         return self.get(chunk, 'palette', ihdr=ihdr, ihdrdata=ihdrdata)
@@ -963,8 +1011,13 @@ class ChunktRNS(ChunkImplementation):
         else:
             raise ValueError("Either valid ihdr or ihdrdata argument required.")
 
-        if (colortype == 0 and len(chunk.data) % 2 != 0) or colortype == 2 and len(chunk.data) % 6 != 0:
-            raise InvalidChunkStructureException('Invalid length for color type {}'.format(colortype))
+        unvalid_0 = colortype == 0 and len(chunk.data) % 2 != 0
+        unvalid_2 = colortype == 2 and len(chunk.data) % 6 != 0
+
+        if unvalid_0 or unvalid_2:
+            raise InvalidChunkStructureException(
+                'Invalid length for color type {}'.format(colortype)
+            )
         l = []
         if colortype == 0:
             for i in range(0, len(chunk.data), 2):
@@ -980,7 +1033,11 @@ class ChunktRNS(ChunkImplementation):
             l = [ i for i in chunk.data ]
         
         else:
-            raise ValueError('Invalid colortype: {}, only 0, 2 and 3 accepted'.format(colortype))
+            raise ValueError(
+                'Invalid colortype: {}, only 0, 2 and 3 accepted'.format(
+                    colortype
+                )
+            )
         return tuple(l)
 
 
@@ -1025,13 +1082,17 @@ class ChunktRNS(ChunkImplementation):
 
 class ChunkiCCP(ChunkImplementation):
 
-    #TODO Docstring
+    """iCCP chunks contain a compressed CCP profile, along with a name for it
+    keys:
+        profile_name:   The name of the profile                 (str)
+        compression:    The compression method used, usally 0   (int)
+        profile:        The decompressed profile                (bytes)
+    """
 
     def __init__(self):
         super(ChunkiCCP, self).__init__('iCCP',
                                 empty_data=b'0\x00\x00', #TODO Default profile
                                 minlength=3,)
-        #TODO Do that everywhere, why did I hardcode these everywhere?
         self.__key_profile_name = 'profile_name'
         self.__key_compression = 'compression'
         self.__key_profile = 'profile'
