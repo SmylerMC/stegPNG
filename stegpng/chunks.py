@@ -180,15 +180,25 @@ class ChunkImplementation:
 
 class ChunkIHDR(ChunkImplementation):
     
-    #TODO Do not hardcode keys
-    #TODO Docstring
-
     """The IHDR chunk is the file header. It MUST be present at the begining of the file,
     following directly after the PNG file signature. Some implementations may ignore any
     chunk preceding it, allowing for some sort of steganography. The presence of any other
     chunk at the begining of a file is therefore very likely to indicate hidden content
     and must be checked.
-    The IHDR chunk contains critical information to decode the image."""
+    The IHDR chunk contains critical information to decode the image.
+
+    Keys:
+        size: a tuple (width, height)
+        width: The width of the image
+        height: The height of the image
+        colortype_name: A fancy name for the color type (read only)
+        colortype_code: The integer encoding the colortype
+        colortype_depth: A tuple with the allowed depth for this colortype
+        bit_depth: The bit depth used for encoding
+        compression: An integer encoding the compression method
+        filter_method: An integer encoding the filtering method
+        interlace: An integer encoding the interlace method
+        channel_count The number of color channel in the image (read only)"""
 
     def __init__(self):
         super(ChunkIHDR, self).__init__(
@@ -206,81 +216,98 @@ class ChunkIHDR(ChunkImplementation):
             ("Wrong!!", None, None),
             ("Truecolour with alpha", (8, 16), 4)
         )
+        self.__key_size = "size"
+        self.__key_width = "width"
+        self.__key_height = "height"
+        self.__key_colortype_name = "colortype_name"
+        self.__key_colortype_code = "colortype_code"
+        self.__key_colortype_depth = "colortype_depth"
+        self.__key_bit_depth = "bit_depth"
+        self.__key_compression = "compression"
+        self.__key_filter_method = "filter_method"
+        self.__key_interlace = "interlace"
+        self.__key_channel_count = "channel_count"
+
 
     def get_all(self, chunk, ihdr=None, ihdrdata=None):
         return {
-            'size': self.get(chunk, 'size'),
-            'colortype_name': self.get(chunk, 'colortype_name'),
-            'colortype_code': self.get(chunk, 'colortype_code'),
-            'colortype_depth': self.get(chunk, 'colortype_depth'),
-            'bit_depth': self.get(chunk, 'bit_depth'),
-            'compression': self.get(chunk, 'compression'),
-            'filter_method': self.get(chunk, 'filter_method'),
-            'interlace': self.get(chunk, 'interlace'),
-            'channel_count': self.get(chunk, 'channel_count')
+            self.__key_size: self.get(chunk, self.__key_size),
+            self.__key_colortype_name: self.get(chunk, self.__key_colortype_name),
+            self.__key_colortype_code: self.get(chunk, self.__key_colortype_code),
+            self.__key_colortype_depth: self.get(chunk, self.__key_colortype_depth),
+            self.__key_bit_depth: self.get(chunk, self.__key_bit_depth),
+            self.__key_compression: self.get(chunk, self.__key_compression),
+            self.__key_filter_method: self.get(chunk, self.__key_filter_method),
+            self.__key_interlace: self.get(chunk, self.__key_interlace),
+            self.__key_channel_count: self.get(chunk, self.__key_channel_count)
         }
 
+
     def get(self, chunk, field, ihdr=None, ihdrdata=None):
-        if field == 'size':
+        if field == self.__key_size:
             width = unpack('>I', chunk.data[0:4])[0]
             height = unpack('>I', chunk.data[4:8])[0]
             return (width, height)
-        elif field == 'width':
+        elif field == self.__key_width:
             return unpack('>I', chunk.data[0:4])[0]
-        elif field == 'height':
+        elif field == self.__key_height:
             return unpack('>I', chunk.data[4:8])[0]
-        elif field == 'colortype_name':
-            code = self.get(chunk, 'colortype_code')
+        elif field == self.__key_colortype_name:
+            code = self.get(chunk, self.__key_colortype_code)
             return self.__color_types[code][0]
-        elif field == 'colortype_code':
+        elif field == self__key_colortype_code:
             return unpack('B', chunk.data[9:10])[0]
-        elif field == 'colortype_depth':
-            code = self.get(chunk, 'colortype_code')
+        elif field == self.__key_colortype_depth:
+            code = self.get(chunk, self.__key_colortype_code)
             return self.__color_types[code][1]
-        elif field == 'bit_depth':
+        elif field == self.__key_bit_depth:
             return unpack('B', chunk.data[8:9])[0]
-        elif field == 'compression':
+        elif field == self.__key_compression:
             return unpack('B', chunk.data[10:11])[0]
-        elif field == 'filter_method':
+        elif field == self.__key_filter_method:
             return unpack('B', chunk.data[11:12])[0]
-        elif field == 'interlace':
+        elif field == self.__key_interlace:
             return unpack('B', chunk.data[12:13])[0]
-        elif field == 'channel_count':
-            code = self.get(chunk, 'colortype_code')
+        elif field == self.__key_channel_count:
+            code = self.get(chunk, self.__key_colortype_code)
             return self.__color_types[code][2] 
         else:
             raise KeyError()
 
+
     def set(self, chunk, field, value, ihdr=None, ihdrdata=None):
-        if field == 'size':
-            self.set(chunk, 'width', value[0])
-            self.set(chunk, 'height', value[1])
-        elif field == 'width':
+        if field == self.__key_size:
+            self.set(chunk, self.__key_width, value[0])
+            self.set(chunk, self.__key_height, value[1])
+        elif field == self.__key_width:
             width = pack('>I', value)
             chunk.data = width + chunk.data[4:]
-        elif field == 'height':
+        elif field == self.__key_height:
             height = pack('>I', value)
             chunk.data = chunk.data[:4] + height + chunk.data[8:]
-        elif field == 'colortype_code':
+        elif field == self.__key_colortype_code:
             code = pack('B', value)
             chunk.data = chunk.data[:9] + code + chunk.data[10:]
-        elif field == 'bit_depth':
+        elif field == self.__key_bit_depth:
             code = pack('B', value)
             chunk.data = chunk.data[:8] + code + chunk.data[9:]
-        elif field == 'compression':
+        elif field == self.__key_compression:
             code = pack('B', value)
             chunk.data = chunk.data[:10] + code + chunk.data[11:]
-        elif field == 'filter_method':
+        elif field == self.__key_filter_method:
             code = pack('B', value)
             chunk.data = chunk.data[:11] + code + chunk.data[12:]
-        elif field == 'interlace':
+        elif field == self.__key_interlace:
             code = pack('B', value)
             chunk.data = chunk.data[:12] + code + chunk.data[13:]
         else:
             raise KeyError()
 
+
     def _is_payload_valid(self, chunk, ihdr=None, ihdrdata=None):
-        return self.get(chunk, 'bit_depth') in self.get(chunk, 'colortype_depth')
+        depth = self.get(chunk, self.__key_bit_depth)
+        return depth in self.get(chunk, self.__key_colortype_depth)
+
 
 class ChunkIDAT(ChunkImplementation):
 
