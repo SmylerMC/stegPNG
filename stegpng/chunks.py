@@ -255,7 +255,7 @@ class ChunkIHDR(ChunkImplementation):
         elif field == self.__key_colortype_name:
             code = self.get(chunk, self.__key_colortype_code)
             return self.__color_types[code][0]
-        elif field == self__key_colortype_code:
+        elif field == self.__key_colortype_code:
             return unpack('B', chunk.data[9:10])[0]
         elif field == self.__key_colortype_depth:
             code = self.get(chunk, self.__key_colortype_code)
