@@ -118,7 +118,7 @@ def masstest(directory, movedir=(ERR_DIR, FIN_DIR)):
 
     for fromdir in movedir:
         print("Moving files from {} to {}... ".format(fromdir, directory), end='')
-        move2new(directory)
+        move2new(fromdir)
         print("Done")
 
     fnames = set()
@@ -126,7 +126,7 @@ def masstest(directory, movedir=(ERR_DIR, FIN_DIR)):
         fnames.update(files)
 
     for fn in fnames:
-        fname = dirpath + '/' + fn
+        fname = directory + '/' + fn
         print(fname)
         with open(fname, 'rb') as f:
             content = f.read()
