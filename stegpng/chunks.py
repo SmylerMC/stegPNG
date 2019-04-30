@@ -311,23 +311,25 @@ class ChunkIHDR(ChunkImplementation):
 
 class ChunkIDAT(ChunkImplementation):
 
-    #TODO Do not hardcode keys
-    #TODO Docstring
-
     """IDAT chunks contain the compressed image datastream, eventualy splited
     over multiple IDAT chunks.
     This chunk is critical, a valid image MUST contain at least one IDAT chunk,
-    which has to be placed after the IHDR chunk and before the IEND chunk."""
+    which has to be placed between the IHDR and IEND chunk.
+    Key:
+        data: simply returns the raw chunk data, has to be processed with other IDAT chunks"""
 
     def __init__(self):
         super(ChunkIDAT, self).__init__('IDAT', minlength=1)
+        self.__key_data = 'data'
 
     def get_all(self, chunk, ihdr=None, ihdrdata=None):
-        return {'data': self.get(chunk, 'data')}
+        return {self.__key_data: self.get(chunk, self.__key_data)}
 
     def get(self, chunk, field, ihdr=None, ihdrdata=None):
-        if field == 'data':
+        if field == self.__key_data:
             return chunk.data
+        else:
+            raise KeyError(f"Only '{self.__key_data}' key is valid for IHDR chunks")
 
 class ChunktEXt(ChunkImplementation):
 
