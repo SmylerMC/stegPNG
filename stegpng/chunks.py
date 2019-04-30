@@ -330,7 +330,9 @@ class ChunkIDAT(ChunkImplementation):
         if field == self.__key_data:
             return chunk.data
         else:
-            raise KeyError(f"Only '{self.__key_data}' key is valid for IHDR chunks")
+            raise KeyError(
+                f"Only '{self.__key_data}' key is valid for IHDR chunks"
+            )
 
 class ChunktEXt(ChunkImplementation):
 
