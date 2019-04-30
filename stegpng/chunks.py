@@ -336,49 +336,61 @@ class ChunkIDAT(ChunkImplementation):
 
 class ChunktEXt(ChunkImplementation):
 
-    #TODO Docstring
-    #TODO Do not hardcode keys
-
-    """tEXt chunks contain text information. They are made a a keyword (max 78 bytes),
-    and the text itself, separated by a null byte. The texts must ba valid latin-1.
-    Keywords may follow common practices to encode specific information. This is not decoded here."""
+    """tEXt chunks contain text information.
+    They are made a a keyword (max 78 bytes),
+    and the text itself, separated by a null byte.
+    The texts must be valid latin-1.
+    Keywords may follow common practices to encode specific information,
+    but this is not decoded here.
+    Keys:
+        keyword: The keyword
+        text: The actual text
+        content: not available from get_all, returns a (keyword, text) tuple"""
 
     def __init__(self):
         super(ChunktEXt, self).__init__('tEXt',
             empty_data=b'A\x00',
             minlength=2,
         )
+        self.__key_keyword = 'keyword'
+        self.__key_text = 'text'
 
     def get_all(self, chunk, ihdr=None, ihdrdata=None):
-        return {'text': self.get(chunk, 'text'),
-                'keyword': self.get(chunk, 'keyword')}
+        return {self.__key_keyword: self.get(chunk, self.__key_keyword),
+                self.__key_text: self.get(chunk, self.__key_text)}
 
     def get(self, chunk, field, ihdr=None, ihdrdata=None):
-        if field not in ('text', 'keyword', 'content'):
+        if field not in (self.__key_text, self.__key_keyword):
             raise KeyError()
         if chunk.data.count(0x00) != 1 or chunk.data.find(0x00) > 78:
-            raise InvalidChunkStructureException("invalid number of null byte separator in tEXt chunk")
+            raise InvalidChunkStructureException(
+                    "Invalid number of null byte separator in tEXt chunk"
+                )
         sep = chunk.data.find(0x00)
-        keyword = unpack('{}s'.format(sep), chunk.data[0: sep])[0].decode('latin1')
+        keyword = unpack('{}s'.format(sep), chunk.data[0: sep])[0]
+        keyword = keyword.decode('latin1')
         textlen = len(chunk.data) - sep - 1
-        text = unpack('{}s'.format(textlen), chunk.data[sep + 1: len(chunk.data)])[0].decode('latin1')
-        if field == 'text':
+        text = chunk.data[sep + 1: len(chunk.data)]
+        text = unpack('{}s'.format(textlen), text)[0]
+        text = text.decode('latin1')
+        if field == self.__key_keyword:
             return text
-        elif field == 'keyword':
+        elif field == self.__key_text:
             return keyword
-        elif field == 'content':
-            return keyword, text
+        raise KeyError(f"Invalid key for tEXt chunk")
 
     def set(self, chunk, field, value, ihdr=None, ihdrdata=None):
-        if field not in ('text', 'keyword'):
+        if field not in (self.__key_text, self.__key_keyword):
             raise KeyError()
         if chunk.data.count(0x00) != 1:
-            raise InvalidChunkStructureException("invalid number of null byte separator in tEXt chunk")
+            raise InvalidChunkStructureException(
+                    "invalid number of null byte separator in tEXt chunk"
+                )
         sep = chunk.data.find(0x00)
         value = value.encode('latin1')
-        if field == 'text':
+        if field == self.__key_text:
             chunk.data = chunk.data[:sep + 1] + value
-        elif field == 'keyword':
+        elif field == self.__key_keyword:
             chunk.data = value + chunk.data[sep:]
 
     def _is_payload_valid(self, chunk, ihdr=None, ihdrdata=None):
