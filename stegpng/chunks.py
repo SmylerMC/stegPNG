@@ -316,7 +316,8 @@ class ChunkIDAT(ChunkImplementation):
     This chunk is critical, a valid image MUST contain at least one IDAT chunk,
     which has to be placed between the IHDR and IEND chunk.
     Key:
-        data: simply returns the raw chunk data, has to be processed with other IDAT chunks"""
+        data: simply returns the raw chunk data
+              has to be processed with other IDAT chunks"""
 
     def __init__(self):
         super(ChunkIDAT, self).__init__('IDAT', minlength=1)
@@ -329,7 +330,9 @@ class ChunkIDAT(ChunkImplementation):
         if field == self.__key_data:
             return chunk.data
         else:
-            raise KeyError(f"Only '{self.__key_data}' key is valid for IHDR chunks")
+            raise KeyError(
+                f"Only '{self.__key_data}' key is valid for IHDR chunks"
+            )
 
 class ChunktEXt(ChunkImplementation):
 
