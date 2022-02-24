@@ -1,5 +1,8 @@
 # Byte-compiled / optimized / DLL files
 
+# IDE
+.idea/
+
 #Our test things
 tests/scraperlogs/*
 tests/reports/*
