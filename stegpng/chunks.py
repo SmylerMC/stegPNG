@@ -1,5 +1,4 @@
 from struct import pack, unpack
-from .png import PngChunk
 from .pngexceptions import InvalidChunkStructureException, UnsupportedCompressionMethodException
 from .utils import compress, decompress
 
@@ -70,7 +69,7 @@ class ChunkImplementation:
             self.max_length = max_length
             self.min_length = min_length
 
-    def _is_length_valid(self, chunk: PngChunk) -> bool:
+    def _is_length_valid(self, chunk) -> bool:
 
         """
         Returns True if the chunk's length is valid for that chunk.
@@ -87,7 +86,7 @@ class ChunkImplementation:
         except AttributeError:
             return len(chunk) in self.lengths
 
-    def is_valid(self, chunk: PngChunk, ihdr=None, ihdr_data=None):
+    def is_valid(self, chunk, ihdr=None, ihdr_data=None):
 
         """
         Returns True if the chunk is valid.

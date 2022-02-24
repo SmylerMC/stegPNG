@@ -1,6 +1,8 @@
 from struct import unpack, pack
 from typing import Any, Optional, Union, Tuple, get_args
 from zlib import crc32 as crc
+
+import stegpng
 from . import chunks
 from .pngexceptions import *
 from .utils import compress, decompress, paeth, as_data, Data as _Data
@@ -24,7 +26,6 @@ _PNG_SIGNATURE = b'\x89PNG\r\n\x1a\n'
 
 # TODO stronger type checks everywhere in here
 # TODO document everything that might raise a read only exception
-
 
 class Png:
 
@@ -63,10 +64,11 @@ class Png:
         self.__scanlines = None
         self.edit = edit
 
-        # True when the bytes changed but the scanlines have not been updated yet
-        self.__scanlines_dirty = True
         # True when the bytes changed but the pixels have not been updated yet
-        self.__bytes_dirty = True
+        self.__stream_has_changed = False
+
+        # True when the scanlines have changed but the stream has not been updated yet
+        self.__pixels_have_changed = False
 
     @property
     def chunks(self) -> list[_Chunk]:
@@ -296,6 +298,20 @@ class Png:
         """
         return decompress(self.datastream)
 
+    @imagedata.setter
+    def imagedata(self, data: _Data):
+        data = compress(data)
+        j = 0
+        for i, chunk in enumerate(self.chunks):
+            if chunk.type == "IDAT":
+                j = i
+                l = len(chunk.data)
+                chunk.data = data[:l]
+                data = data[l:]
+        c = stegpng.create_empty_chunk("IDAT")
+        c.data = data
+        self.chunks.insert(j + 1, c)
+
     @property
     def scanlines(self) -> tuple[_ScanLine]:
         # TODO setter
@@ -311,7 +327,7 @@ class Png:
         if ihdr['interlace'] != 0:
             # TODO More specific exception
             raise InvalidPngStructureException('Invalid interlace method: {}'.format(ihdr['interlace']))
-        if self.__scanlines_dirty:
+        if not self.__scanlines:
             depth = ihdr['bit_depth']
             if depth not in ihdr['colortype_depth']:
                 raise InvalidPngStructureException(
@@ -347,7 +363,6 @@ class Png:
                 lines.append(s)
                 i += 1
             self.__scanlines = lines
-            self.__scanlines_dirty = False
         return tuple(self.__scanlines)
 
     def getpixel(self, position: tuple[int, int]) -> Tuple[int, ...]:
@@ -407,6 +422,11 @@ class Png:
             )
         return x, y
 
+    def recalculate_image_data(self):
+        b = bytearray()
+        for scanline in self.scanlines:
+            b += scanline.data
+        self.imagedata = b
 
 class PngChunk:
 
@@ -664,7 +684,7 @@ class ScanLine:
     """
 
     def __init__(self, channelcount: int, bitdepth: int, previous: Optional[_ScanLine],
-                 data: _Data = None, content: _ScanLineContent = None, edit: bool = True) -> None:
+                 data: _Data = None, content: _ScanLineContent = None, edit: bool = True, png: Png = None) -> None:
 
         """
         :param channelcount: number of color channels in the image.
@@ -771,6 +791,7 @@ class ScanLine:
             raise Exception("Trying to edit readonly scanline!")
         if type(val) != int:
             raise TypeError("Filter type should be an integer")
+        b = self.unfiltered # Force decode the unfiltered data if needed
         self.__filtertype = val
         self.__data_dirty = True
 
@@ -911,8 +932,8 @@ class ScanLine:
             workingsize = ceil(self.channelcount * self.bitdepth / 8)
             filtered = bytearray()
 
-            if self.filtertype == 0:
-                filtered = self.unfiltered
+            if self.__filtertype == 0:
+                filtered = self.__unfiltered
             else:
                 for index, byte in enumerate(self.unfiltered):
 
